@@ -1,85 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe } from 'lucide-react';
-import { supabase, getCurrentUser, isAdmin } from './supabase';
 
 const ForecastingApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [activeView, setActiveView] = useState('login');
   const [questions, setQuestions] = useState([]);
   const [forecasts, setForecasts] = useState([]);
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  // Initialize app - check auth and load data
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        setLoading(true);
-        
-        // Check if user is logged in
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          const userData = await getCurrentUser();
-          if (userData) {
-            setCurrentUser(userData);
-            setActiveView('dashboard');
-            await loadAppData();
-          }
-        }
-      } catch (error) {
-        console.error('Error initializing app:', error);
-        setError('Failed to initialize app');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initializeApp();
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN' && session) {
-        const userData = await getCurrentUser();
-        if (userData) {
-          setCurrentUser(userData);
-          setActiveView('dashboard');
-          await loadAppData();
-        }
-      } else if (event === 'SIGNED_OUT') {
-        setCurrentUser(null);
-        setActiveView('login');
-        setQuestions([]);
-        setForecasts([]);
-        setUsers([]);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  // Load all app data
-  const loadAppData = async () => {
-    try {
-      const [questionsResult, forecastsResult, usersResult] = await Promise.all([
-        supabase.from('questions').select('*').order('created_at', { ascending: false }),
-        supabase.from('forecasts').select('*'),
-        supabase.from('users').select('*')
-      ]);
-
-      if (questionsResult.error) throw questionsResult.error;
-      if (forecastsResult.error) throw forecastsResult.error;
-      if (usersResult.error) throw usersResult.error;
-
-      setQuestions(questionsResult.data || []);
-      setForecasts(forecastsResult.data || []);
-      setUsers(usersResult.data || []);
-    } catch (error) {
-      console.error('Error loading app data:', error);
-      setError('Failed to load data');
-    }
-  };
+  const [users, setUsers] = useState([
+    { id: 1, email: 'admin@company.com', password: 'admin123', role: 'admin', name: 'Admin User' },
+    { id: 2, email: 'forecaster1@company.com', password: 'forecast123', role: 'forecaster', name: 'John Economist' },
+    { id: 3, email: 'forecaster2@company.com', password: 'forecast123', role: 'forecaster', name: 'Sarah Analyst' }
+  ]);
 
   // Sample questions
   useEffect(() => {
@@ -128,194 +59,64 @@ const ForecastingApp = () => {
     { title: "Tech Sector Leads Market Rally Amid AI Optimism", source: "Financial Times", url: "#" }
   ];
 
- // Authentication functions
-  const login = async (email, password) => {
-    try {
-      setError('');
-      
-      // Try demo account first (for testing)
-      const demoAccounts = [
-        { email: 'admin@company.com', password: 'admin123', role: 'admin', name: 'Demo Admin' },
-        { email: 'forecaster1@company.com', password: 'forecast123', role: 'forecaster', name: 'Demo Forecaster 1' },
-        { email: 'forecaster2@company.com', password: 'forecast123', role: 'forecaster', name: 'Demo Forecaster 2' }
-      ];
-      
-      const demoUser = demoAccounts.find(u => u.email === email && u.password === password);
-      if (demoUser) {
-        // Create a demo user object that matches our database structure
-        const demoUserData = {
-          id: `demo-${demoUser.role}`,
-          email: demoUser.email,
-          name: demoUser.name,
-          role: demoUser.role,
-          must_change_password: false
-        };
-        setCurrentUser(demoUserData);
-        setActiveView('dashboard');
-        await loadAppData();
-        return true;
-      }
-
-      // Try Supabase authentication
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
-      if (error) {
-        setError(error.message);
-        return false;
-      }
-
-      // User data will be set by the auth state change listener
+  const login = (email, password) => {
+    const user = users.find(u => u.email === email && u.password === password);
+    if (user) {
+      setCurrentUser(user);
+      setActiveView('dashboard');
       return true;
-    } catch (error) {
-      console.error('Login error:', error);
-      setError('Login failed. Please try again.');
-      return false;
+    }
+    return false;
+  };
+
+  const logout = () => {
+    setCurrentUser(null);
+    setActiveView('login');
+  };
+
+  const createQuestion = (questionData) => {
+    const newQuestion = {
+      ...questionData,
+      id: Date.now(),
+      createdDate: new Date().toISOString().split('T')[0],
+      resolvedDate: null,
+      resolution: null,
+      isResolved: false
+    };
+    setQuestions([...questions, newQuestion]);
+  };
+
+  const submitForecast = (questionId, forecast) => {
+    const existingForecastIndex = forecasts.findIndex(
+      f => f.questionId === questionId && f.userId === currentUser.id
+    );
+    
+    const newForecast = {
+      questionId,
+      userId: currentUser.id,
+      forecast,
+      timestamp: new Date().toISOString(),
+      date: new Date().toISOString().split('T')[0]
+    };
+
+    if (existingForecastIndex >= 0) {
+      const updatedForecasts = [...forecasts];
+      updatedForecasts[existingForecastIndex] = newForecast;
+      setForecasts(updatedForecasts);
+    } else {
+      setForecasts([...forecasts, newForecast]);
     }
   };
 
-  const logout = async () => {
-    try {
-      // Handle demo users
-      if (currentUser?.id?.startsWith('demo-')) {
-        setCurrentUser(null);
-        setActiveView('login');
-        return;
-      }
-
-      await supabase.auth.signOut();
-      // Cleanup will be handled by the auth state change listener
-    } catch (error) {
-      console.error('Logout error:', error);
-      setError('Logout failed');
-    }
+  const resolveQuestion = (questionId, resolution) => {
+    setQuestions(questions.map(q => 
+      q.id === questionId 
+        ? { ...q, isResolved: true, resolution, resolvedDate: new Date().toISOString().split('T')[0] }
+        : q
+    ));
   };
 
-  const createUser = async (userData) => {
-    try {
-      setError('');
-      
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password,
-        user_metadata: {
-          name: userData.name,
-          role: userData.role,
-          must_change_password: true
-        }
-      });
-
-      if (error) throw error;
-
-      await loadAppData(); // Refresh users list
-      return true;
-    } catch (error) {
-      console.error('Create user error:', error);
-      setError(error.message);
-      return false;
-    }
-  };
-
-  const resetPassword = async (email) => {
-    try {
-      setError('');
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin
-      });
-
-      if (error) throw error;
-      
-      return true;
-    } catch (error) {
-      console.error('Reset password error:', error);
-      setError(error.message);
-      return false;
-    }
-  };
-
-  // Data manipulation functions
-  const createQuestion = async (questionData) => {
-    try {
-      setError('');
-      
-      const { data, error } = await supabase
-        .from('questions')
-        .insert([{
-          title: questionData.title,
-          description: questionData.description,
-          type: questionData.type,
-          categories: questionData.type === 'three-category' ? questionData.categories : null,
-          options: questionData.type === 'multiple-choice' ? questionData.options : null,
-          created_by: currentUser.id
-        }])
-        .select();
-
-      if (error) throw error;
-
-      await loadAppData(); // Refresh questions list
-      return true;
-    } catch (error) {
-      console.error('Create question error:', error);
-      setError(error.message);
-      return false;
-    }
-  };
-
-  const submitForecast = async (questionId, forecast) => {
-    try {
-      setError('');
-      
-      const { data, error } = await supabase
-        .from('forecasts')
-        .upsert([{
-          user_id: currentUser.id,
-          question_id: questionId,
-          forecast: forecast,
-          updated_at: new Date().toISOString()
-        }])
-        .select();
-
-      if (error) throw error;
-
-      await loadAppData(); // Refresh forecasts list
-      return true;
-    } catch (error) {
-      console.error('Submit forecast error:', error);
-      setError(error.message);
-      return false;
-    }
-  };
-
-  const resolveQuestion = async (questionId, resolution) => {
-    try {
-      setError('');
-      
-      const { data, error } = await supabase
-        .from('questions')
-        .update({
-          is_resolved: true,
-          resolution: resolution,
-          resolved_date: new Date().toISOString().split('T')[0]
-        })
-        .eq('id', questionId)
-        .select();
-
-      if (error) throw error;
-
-      await loadAppData(); // Refresh questions list
-      return true;
-    } catch (error) {
-      console.error('Resolve question error:', error);
-      setError(error.message);
-      return false;
-    }
-  };
-
- // Calculation functions (mostly unchanged)
- const calculateBrierScore = (forecast, resolution, questionType) => {
+  const calculateBrierScore = (forecast, resolution, questionType) => {
     if (questionType === 'binary') {
       const p = forecast.probability / 100;
       const outcome = resolution ? 1 : 0;
@@ -337,10 +138,10 @@ const ForecastingApp = () => {
   };
 
   const getUserStats = (userId) => {
-    const userForecasts = forecasts.filter(f => f.user_id === userId);
-    const resolvedQuestions = questions.filter(q => q.is_resolved);
+    const userForecasts = forecasts.filter(f => f.userId === userId);
+    const resolvedQuestions = questions.filter(q => q.isResolved);
     const userResolvedForecasts = userForecasts.filter(f => 
-      resolvedQuestions.some(q => q.id === f.question_id)
+      resolvedQuestions.some(q => q.id === f.questionId)
     );
 
     if (userResolvedForecasts.length === 0) {
@@ -351,7 +152,7 @@ const ForecastingApp = () => {
     let correctPredictions = 0;
 
     userResolvedForecasts.forEach(forecast => {
-      const question = resolvedQuestions.find(q => q.id === forecast.question_id);
+      const question = resolvedQuestions.find(q => q.id === forecast.questionId);
       if (question) {
         const brierScore = calculateBrierScore(forecast.forecast, question.resolution, question.type);
         totalBrierScore += brierScore;
@@ -381,44 +182,12 @@ const ForecastingApp = () => {
       .sort((a, b) => parseFloat(a.stats.brierScore) - parseFloat(b.stats.brierScore));
   };
 
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
-        <div className="text-center">
-          <TrendingUp className="h-12 w-12 text-blue-600 mx-auto animate-pulse" />
-          <p className="mt-4 text-slate-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show login screen if not authenticated
   if (!currentUser) {
-    return <LoginScreen onLogin={login} onResetPassword={resetPassword} error={error} />;
+    return <LoginScreen onLogin={login} />;
   }
 
-  // Main app interface
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
-      {/* Error banner */}
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-400 p-4">
-          <div className="flex">
-            <AlertCircle className="h-5 w-5 text-red-400" />
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-              <button 
-                onClick={() => setError('')}
-                className="text-sm text-red-600 hover:text-red-800 underline"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <nav className="bg-white shadow-sm border-b border-slate-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -458,9 +227,6 @@ const ForecastingApp = () => {
               <div className="flex items-center space-x-2">
                 <User className="h-5 w-5 text-slate-400" />
                 <span className="text-sm text-slate-700">{currentUser.name}</span>
-                {currentUser.id?.startsWith('demo-') && (
-                  <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">Demo</span>
-                )}
                 <button
                   onClick={logout}
                   className="text-sm text-slate-500 hover:text-slate-700"
@@ -497,9 +263,7 @@ const ForecastingApp = () => {
         {activeView === 'admin' && currentUser.role === 'admin' && (
           <AdminView 
             questions={questions}
-            users={users}
             onCreateQuestion={createQuestion}
-            onCreateUser={createUser}
             onResolveQuestion={resolveQuestion}
             forecasts={forecasts}
           />
@@ -509,100 +273,19 @@ const ForecastingApp = () => {
   );
 };
 
-const LoginScreen = ({ onLogin, onResetPassword, error }) => {
+const LoginScreen = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    setLoading(true);
-    const success = await onLogin(email, password);
-    setLoading(false);
-    if (!success) {
-      // Error is handled by parent component
+    if (onLogin(email, password)) {
+      setError('');
+    } else {
+      setError('Invalid credentials');
     }
   };
-
-  const handleResetPassword = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    const success = await onResetPassword(email);
-    setLoading(false);
-    if (success) {
-      setResetSuccess(true);
-    }
-  };
-
-  if (showForgotPassword) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
-        <div className="max-w-md w-full space-y-8 p-8">
-          <div className="text-center">
-            <TrendingUp className="mx-auto h-12 w-12 text-blue-600" />
-            <h2 className="mt-6 text-3xl font-bold text-gray-900">Reset Password</h2>
-            <p className="mt-2 text-sm text-gray-600">Enter your email to receive reset instructions</p>
-          </div>
-          
-          {resetSuccess ? (
-            <div className="bg-white p-6 rounded-lg shadow-md">
-              <div className="text-center">
-                <Check className="mx-auto h-12 w-12 text-green-600" />
-                <h3 className="mt-4 text-lg font-medium text-gray-900">Check your email</h3>
-                <p className="mt-2 text-sm text-gray-600">
-                  We've sent password reset instructions to your email address.
-                </p>
-                <button
-                  onClick={() => {
-                    setShowForgotPassword(false);
-                    setResetSuccess(false);
-                  }}
-                  className="mt-4 text-blue-600 hover:text-blue-800 underline"
-                >
-                  Back to Login
-                </button>
-              </div>
-            </div>
-          ) : (
-            <form className="mt-8 space-y-6" onSubmit={handleResetPassword}>
-              <div className="bg-white p-6 rounded-lg shadow-md">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Email</label>
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="your@email.com"
-                      required
-                    />
-                  </div>
-                </div>
-                {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
-                >
-                  {loading ? 'Sending...' : 'Send Reset Email'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(false)}
-                  className="mt-2 w-full text-sm text-gray-600 hover:text-gray-800"
-                >
-                  Back to Login
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
@@ -623,7 +306,6 @@ const LoginScreen = ({ onLogin, onResetPassword, error }) => {
                   onChange={(e) => setEmail(e.target.value)}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="your@email.com"
-                  required
                 />
               </div>
               <div>
@@ -634,27 +316,18 @@ const LoginScreen = ({ onLogin, onResetPassword, error }) => {
                   onChange={(e) => setPassword(e.target.value)}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Password"
-                  required
                 />
               </div>
             </div>
             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
             <button
               type="submit"
-              disabled={loading}
-              className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+              className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowForgotPassword(true)}
-              className="mt-2 w-full text-sm text-gray-600 hover:text-gray-800 underline"
-            >
-              Forgot Password?
+              Sign In
             </button>
             <div className="mt-4 text-xs text-gray-500">
-              <p><strong>Demo Accounts (for testing):</strong></p>
+              <p><strong>Demo Accounts:</strong></p>
               <p>Admin: admin@company.com / admin123</p>
               <p>Forecaster: forecaster1@company.com / forecast123</p>
             </div>
@@ -1115,7 +788,7 @@ const LeaderboardView = ({ leaderboard }) => {
   );
 };
 
-const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolveQuestion, forecasts }) => {
+const AdminView = ({ questions, onCreateQuestion, onResolveQuestion, forecasts }) => {
   const [activeTab, setActiveTab] = useState('create');
   const [newQuestion, setNewQuestion] = useState({
     title: '',
@@ -1124,58 +797,26 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
     categories: ['Increase', 'Remain Unchanged', 'Decrease'],
     options: ['Option A', 'Option B', 'Option C']
   });
-  const [newUser, setNewUser] = useState({
-    email: '',
-    password: '',
-    name: '',
-    role: 'forecaster'
-  });
-  const [showCreateUser, setShowCreateUser] = useState(false);
 
-  const handleCreateQuestion = async (e) => {
+  const handleCreateQuestion = (e) => {
     e.preventDefault();
-    const success = await onCreateQuestion(newQuestion);
-    if (success) {
-      setNewQuestion({
-        title: '',
-        description: '',
-        type: 'binary',
-        categories: ['Increase', 'Remain Unchanged', 'Decrease'],
-        options: ['Option A', 'Option B', 'Option C']
-      });
-    }
+    onCreateQuestion(newQuestion);
+    setNewQuestion({
+      title: '',
+      description: '',
+      type: 'binary',
+      categories: ['Increase', 'Remain Unchanged', 'Decrease'],
+      options: ['Option A', 'Option B', 'Option C']
+    });
   };
 
-  const handleCreateUser = async (e) => {
-    e.preventDefault();
-    const success = await onCreateUser(newUser);
-    if (success) {
-      setNewUser({
-        email: '',
-        password: '',
-        name: '',
-        role: 'forecaster'
-      });
-      setShowCreateUser(false);
-    }
-  };
-
-  const handleResolveQuestion = async (questionId, resolution) => {
-    await onResolveQuestion(questionId, resolution);
+  const handleResolveQuestion = (questionId, resolution) => {
+    onResolveQuestion(questionId, resolution);
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-900">Admin Panel</h2>
-        <button
-          onClick={() => setShowCreateUser(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
-        >
-          <Plus className="h-4 w-4 inline mr-2" />
-          Create User
-        </button>
-      </div>
+      <h2 className="text-2xl font-bold text-slate-900">Admin Panel</h2>
       
       <div className="bg-white rounded-lg shadow-sm border border-slate-200">
         <div className="border-b border-slate-200">
@@ -1199,16 +840,6 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
               }`}
             >
               Manage Questions
-            </button>
-            <button
-              onClick={() => setActiveTab('users')}
-              className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                activeTab === 'users'
-                  ? 'border-blue-500 text-blue-600'
-                  : 'border-transparent text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Manage Users
             </button>
             <button
               onClick={() => setActiveTab('analytics')}
@@ -1362,72 +993,11 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
             </div>
           )}
 
-          {activeTab === 'users' && (
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-slate-900">User Management</h3>
-              <div className="bg-slate-50 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-100">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        User
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Role
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Created
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-slate-200">
-                    {users.map((user) => (
-                      <tr key={user.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-slate-900">{user.name}</div>
-                            <div className="text-sm text-slate-500">{user.email}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.role === 'admin' 
-                              ? 'bg-purple-100 text-purple-800' 
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {user.role}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {user.must_change_password ? (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                              Must Change Password
-                            </span>
-                          ) : (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                              Active
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
           {activeTab === 'analytics' && (
             <div className="space-y-6">
               <h3 className="text-lg font-medium text-slate-900">Platform Analytics</h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-slate-50 p-4 rounded-lg">
                   <p className="text-sm text-slate-600">Total Questions</p>
                   <p className="text-2xl font-bold text-slate-900">{questions.length}</p>
@@ -1435,12 +1005,8 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
                 <div className="bg-slate-50 p-4 rounded-lg">
                   <p className="text-sm text-slate-600">Active Questions</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    {questions.filter(q => !q.is_resolved).length}
+                    {questions.filter(q => !q.isResolved).length}
                   </p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-lg">
-                  <p className="text-sm text-slate-600">Total Users</p>
-                  <p className="text-2xl font-bold text-slate-900">{users.length}</p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg">
                   <p className="text-sm text-slate-600">Total Forecasts</p>
@@ -1452,12 +1018,10 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
                 <h4 className="font-medium text-slate-900 mb-3">Recent Activity</h4>
                 <div className="space-y-2">
                   {forecasts.slice(-5).reverse().map((forecast, index) => {
-                    const question = questions.find(q => q.id === forecast.question_id);
-                    const user = users.find(u => u.id === forecast.user_id);
+                    const question = questions.find(q => q.id === forecast.questionId);
                     return (
                       <div key={index} className="text-sm text-slate-600">
-                        {user?.name} submitted forecast for "{question?.title}" on{' '}
-                        {new Date(forecast.created_at).toLocaleDateString()}
+                        Forecast submitted for "{question?.title}" on {forecast.date}
                       </div>
                     );
                   })}
@@ -1467,78 +1031,6 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
           )}
         </div>
       </div>
-
-      {/* Create User Modal */}
-      {showCreateUser && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">Create New User</h3>
-            <form onSubmit={handleCreateUser} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
-                <input
-                  type="text"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Email</label>
-                <input
-                  type="email"
-                  value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Temporary Password</label>
-                <input
-                  type="password"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  required
-                  minLength="6"
-                />
-                <p className="text-xs text-gray-500 mt-1">User will be required to change this on first login</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Role</label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="forecaster">Forecaster</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </div>
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="submit"
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  Create User
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateUser(false);
-                    setNewUser({ email: '', password: '', name: '', role: 'forecaster' });
-                  }}
-                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
