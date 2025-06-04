@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe } from 'lucide-react';
+import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check } from 'lucide-react';
 import { supabase, getCurrentUser, isAdmin } from './supabase';
 
 const ForecastingApp = () => {
