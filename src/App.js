@@ -197,17 +197,27 @@ const ForecastingApp = () => {
     try {
       setError('');
       
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password,
-        user_metadata: {
-          name: userData.name,
-          role: userData.role,
-          must_change_password: true
-        }
+      // Check if current user is admin
+      if (currentUser.role !== 'admin') {
+        setError('Only admins can create users');
+        return false;
+      }
+      
+      // Call our database function to create the user
+      const { data, error } = await supabase.rpc('create_new_user', {
+        user_email: userData.email,
+        user_password: userData.password,
+        user_name: userData.name,
+        user_role: userData.role
       });
 
       if (error) throw error;
+
+      // Check if the function returned an error
+      if (!data.success) {
+        setError(data.error);
+        return false;
+      }
 
       await loadAppData(); // Refresh users list
       return true;
