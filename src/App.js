@@ -241,6 +241,12 @@ const ForecastingApp = () => {
     try {
       setError('');
       
+      // Check if current user is admin before allowing question creation
+      if (currentUser.role !== 'admin') {
+        setError('Only admins can create questions');
+        return false;
+      }
+      
       const { data, error } = await supabase
         .from('questions')
         .insert([{
@@ -264,34 +270,15 @@ const ForecastingApp = () => {
     }
   };
 
-  const submitForecast = async (questionId, forecast) => {
-    try {
-      setError('');
-      
-      const { data, error } = await supabase
-        .from('forecasts')
-        .upsert([{
-          user_id: currentUser.id,
-          question_id: questionId,
-          forecast: forecast,
-          updated_at: new Date().toISOString()
-        }])
-        .select();
-
-      if (error) throw error;
-
-      await loadAppData(); // Refresh forecasts list
-      return true;
-    } catch (error) {
-      console.error('Submit forecast error:', error);
-      setError(error.message);
-      return false;
-    }
-  };
-
   const resolveQuestion = async (questionId, resolution) => {
     try {
       setError('');
+      
+      // Check if current user is admin before allowing question resolution
+      if (currentUser.role !== 'admin') {
+        setError('Only admins can resolve questions');
+        return false;
+      }
       
       const { data, error } = await supabase
         .from('questions')
