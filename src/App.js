@@ -248,6 +248,53 @@ const ForecastingApp = () => {
       return false;
     }
   };
+  
+
+  /**
+ * Called by QuestionsView when a user clicks “Submit” on a question.
+ * - questionId: the UUID of the question being answered.
+ * - forecastVector: a JSON object or number representing their probabilities.
+ */
+  const onSubmitForecast = async (questionId, forecastVector) => {
+    try {
+      // Clear any previous error message
+      setError('');
+  
+      // 1️⃣ Insert or upsert the forecast into the `forecasts` table
+      //    We use upsert so that if the user already has a forecast for this question,
+      //    it overwrites rather than creating a duplicate.
+      const { error } = await supabase
+        .from('forecasts')
+        .upsert(
+          {
+            question_id: questionId,
+            user_id: currentUser.id,
+            forecast: forecastVector,
+            updated_at: new Date().toISOString()
+          },
+          { onConflict: ['user_id', 'question_id'] }
+        );
+  
+      if (error) {
+        throw error;
+      }
+  
+      // 2️⃣ Reload all app data (questions, forecasts, users, etc.)
+      //    so the UI (like your leaderboard or dashboard) reflects the new forecast immediately.
+      await loadAppData();
+  
+      return true;
+    } catch (e) {
+      console.error('Submit forecast failed:', e);
+      setError(e.message || 'Submit failed');
+      return false;
+    }
+  };
+
+
+
+
+
 
   // Data manipulation functions
   const createQuestion = async (questionData) => {
@@ -488,7 +535,7 @@ const ForecastingApp = () => {
             questions={questions}
             forecasts={forecasts}
             currentUser={currentUser}
-            onSubmitForecast={onSubmitForecast}
+            onSubmitForecast={onsubmitForecast }
           />
         )}
         {activeView === 'leaderboard' && (
