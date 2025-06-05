@@ -531,7 +531,7 @@ const ForecastingApp = () => {
             questions={questions}
             forecasts={forecasts}
             currentUser={currentUser}
-            onSubmitForecast={onsubmitForecast }
+            onSubmitForecast={onSubmitForecast }
           />
         )}
         {activeView === 'leaderboard' && (
