@@ -193,6 +193,24 @@ const ForecastingApp = () => {
     }
   };
 
+  const resetPassword = async (email) => {
+    try {
+      setError('');
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
+  
+      if (error) throw error;
+      
+      return true;
+    } catch (error) {
+      console.error('Reset password error:', error);
+      setError(error.message);
+      return false;
+    }
+  };
+
   const createUser = async (userData) => {
     console.log('createUser called with:', userData);
     console.log('Current user role:', currentUser.role);
