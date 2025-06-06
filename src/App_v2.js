@@ -239,10 +239,9 @@ const ForecastingApp = () => {
         return true;
       }
   
-      // For real users, call our database function
-      const { data, error } = await supabase.rpc('create_new_user', {
+      // For real users, create invitation (note: no password needed)
+      const { data, error } = await supabase.rpc('create_user_invitation', {
         user_email: userData.email,
-        user_password: userData.password,
         user_name: userData.name,
         user_role: userData.role
       });
@@ -258,81 +257,29 @@ const ForecastingApp = () => {
         return false;
       }
   
-      // Show success message with instructions
-      setError(`✅ User invitation created for ${userData.email}. 
+      // Show success message with clear instructions
+      setError(`✅ Invitation created successfully!
   
-  Instructions to send to the user:
-  1. Go to ${window.location.origin}
-  2. Click "Sign Up" (they'll need to create this option if it doesn't exist)
-  3. Sign up using the email: ${userData.email}
-  4. Their account will automatically be linked with the ${userData.role} role.
+  📧 Send these instructions to ${userData.email}:
   
-  ${data.message}`);
+  1. Go to: ${window.location.origin}
+  2. Click "Sign Up" 
+  3. Create account using email: ${userData.email}
+  4. Choose any password (they'll be required to change it)
+  5. Their account will automatically have ${userData.role} permissions
   
-      await loadAppData(); // Refresh users list
+  The invitation will expire in 7 days.`);
+  
+      await loadAppData(); // Refresh data
       return true;
       
     } catch (error) {
       console.error('Create user error:', error);
-      setError(error.message || 'Failed to create user');
+      setError(error.message || 'Failed to create invitation');
       return false;
     }
   };
   
-
-  
-  // Update your LoginScreen component to include signup option
-  // Add this state to LoginScreen:
-  const [isSignup, setIsSignup] = useState(false);
-  const [name, setName] = useState('');
-  
-  // Add this to the form in LoginScreen:
-  {isSignup && (
-    <div>
-      <label className="block text-sm font-medium text-gray-700">Full Name</label>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        placeholder="Your full name"
-        required
-      />
-    </div>
-  )}
-  
-  // Update the form submit handler:
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    let success;
-    if (isSignup) {
-      success = await onSignup(email, password, name);
-    } else {
-      success = await onLogin(email, password);
-    }
-    
-    setLoading(false);
-    if (!success) {
-      // Error is handled by parent component
-    }
-  };
-  
-  // Add toggle button:
-  <button
-    type="button"
-    onClick={() => {
-      setIsSignup(!isSignup);
-      setError('');
-    }}
-    className="mt-2 w-full text-sm text-gray-600 hover:text-gray-800 underline"
-  >
-    {isSignup ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
-  </button>
-
-
-
   // Add this function to load invitations in your AdminView
   const loadInvitations = async () => {
     try {
@@ -382,6 +329,13 @@ const ForecastingApp = () => {
     }
   };
   
+
+
+
+
+
+
+
   // Data manipulation functions
   const createQuestion = async (questionData) => {
     try {
