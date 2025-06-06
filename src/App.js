@@ -206,45 +206,107 @@ const ForecastingApp = () => {
         return false;
       }
       
-      // Call our database function to create the user
-      const { data, error } = await supabase.rpc('create_new_user', {
+      // For demo users, simulate user creation
+      if (currentUser?.id?.startsWith('demo-')) {
+        const newDemoUser = {
+          id: `demo-user-${Date.now()}`,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          must_change_password: true,
+          created_at: new Date().toISOString()
+        };
+        
+        setUsers(prevUsers => [...prevUsers, newDemoUser]);
+        return true;
+      }
+  
+      // For real users, create invitation (note: no password needed)
+      const { data, error } = await supabase.rpc('create_user_invitation', {
         user_email: userData.email,
-        user_password: userData.password,
         user_name: userData.name,
         user_role: userData.role
       });
-
-      if (error) throw error;
-
+  
+      if (error) {
+        console.error('Database function error:', error);
+        throw error;
+      }
+  
       // Check if the function returned an error
       if (!data.success) {
         setError(data.error);
         return false;
       }
-
-      await loadAppData(); // Refresh users list
+  
+      // Show success message with clear instructions
+      setError(`✅ Invitation created successfully!
+  
+  📧 Send these instructions to ${userData.email}:
+  
+  1. Go to: ${window.location.origin}
+  2. Click "Sign Up" 
+  3. Create account using email: ${userData.email}
+  4. Choose any password (they'll be required to change it)
+  5. Their account will automatically have ${userData.role} permissions
+  
+  The invitation will expire in 7 days.`);
+  
+      await loadAppData(); // Refresh data
       return true;
+      
     } catch (error) {
       console.error('Create user error:', error);
-      setError(error.message);
+      setError(error.message || 'Failed to create invitation');
       return false;
     }
   };
-
-  const resetPassword = async (email) => {
+  
+  // Add this function to load invitations in your AdminView
+  const loadInvitations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_invitations')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error loading invitations:', error);
+      return [];
+    }
+  };
+  
+  // Add signup function (if you don't have it already)
+  const signup = async (email, password, name) => {
     try {
       setError('');
       
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name
+          }
+        }
       });
-
-      if (error) throw error;
-      
+  
+      if (error) {
+        setError(error.message);
+        return false;
+      }
+  
+      if (data.user && !data.session) {
+        setError('Please check your email for verification link');
+        return false;
+      }
+  
       return true;
     } catch (error) {
-      console.error('Reset password error:', error);
-      setError(error.message);
+      console.error('Signup error:', error);
+      setError('Signup failed. Please try again.');
       return false;
     }
   };
@@ -1406,65 +1468,78 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
           )}
 
           {activeTab === 'users' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               <h3 className="text-lg font-medium text-slate-900">User Management</h3>
-              <div className="bg-slate-50 rounded-lg overflow-hidden">
-                <table className="min-w-full divide-y divide-slate-200">
-                  <thead className="bg-slate-100">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        User
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Role
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Created
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-slate-200">
-                    {users.map((user) => (
-                      <tr key={user.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div>
-                            <div className="text-sm font-medium text-slate-900">{user.name}</div>
-                            <div className="text-sm text-slate-500">{user.email}</div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            user.role === 'admin' 
-                              ? 'bg-purple-100 text-purple-800' 
-                              : 'bg-blue-100 text-blue-800'
-                          }`}>
-                            {user.role}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {user.must_change_password ? (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                              Must Change Password
-                            </span>
-                          ) : (
-                            <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-                              Active
-                            </span>
-                          )}
-                        </td>
+              
+              {/* Active Users */}
+              <div>
+                <h4 className="text-md font-medium text-slate-800 mb-3">Active Users</h4>
+                <div className="bg-slate-50 rounded-lg overflow-hidden">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-slate-100">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          User
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Role
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Created
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
+                          Status
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-slate-200">
+                      {users.map((user) => (
+                        <tr key={user.id}>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-slate-900">{user.name}</div>
+                              <div className="text-sm text-slate-500">{user.email}</div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              user.role === 'admin' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {user.role}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                            {new Date(user.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {user.must_change_password ? (
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                Must Change Password
+                              </span>
+                            ) : (
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+                                Active
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Pending Invitations */}
+              <div>
+                <h4 className="text-md font-medium text-slate-800 mb-3">Pending Invitations</h4>
+                <PendingInvitations />
               </div>
             </div>
           )}
+
+          
 
           {activeTab === 'analytics' && (
             <div className="space-y-6">
@@ -1585,6 +1660,93 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
     </div>
   );
 };
+
+
+
+const PendingInvitations = () => {
+  const [invitations, setInvitations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadInvitations();
+  }, []);
+
+  const loadInvitations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_invitations')
+        .select('*, invited_by_user:users!invited_by(name)')
+        .is('used_at', null)
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      setInvitations(data || []);
+    } catch (error) {
+      console.error('Error loading invitations:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-sm text-slate-500">Loading invitations...</div>;
+  }
+
+  if (invitations.length === 0) {
+    return <div className="text-sm text-slate-500">No pending invitations</div>;
+  }
+
+  return (
+    <div className="bg-yellow-50 rounded-lg overflow-hidden">
+      <table className="min-w-full divide-y divide-yellow-200">
+        <thead className="bg-yellow-100">
+          <tr>
+            <th className="px-6 py-3 text-left text-xs font-medium text-yellow-800 uppercase tracking-wider">
+              Email
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-yellow-800 uppercase tracking-wider">
+              Name
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-yellow-800 uppercase tracking-wider">
+              Role
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-yellow-800 uppercase tracking-wider">
+              Invited
+            </th>
+            <th className="px-6 py-3 text-left text-xs font-medium text-yellow-800 uppercase tracking-wider">
+              Expires
+            </th>
+          </tr>
+        </thead>
+        <tbody className="bg-yellow-50 divide-y divide-yellow-200">
+          {invitations.map((invitation) => (
+            <tr key={invitation.id}>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                {invitation.email}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-900">
+                {invitation.name}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap">
+                <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                  {invitation.role}
+                </span>
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                {new Date(invitation.created_at).toLocaleDateString()}
+              </td>
+              <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
+                {new Date(invitation.expires_at).toLocaleDateString()}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+
 
 const QuestionManagementCard = ({ question, forecasts, onResolve }) => {
   const [showResolve, setShowResolve] = useState(false);
