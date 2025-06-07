@@ -280,58 +280,6 @@ const ForecastingApp = () => {
   };
   
 
-  
-  // Update your LoginScreen component to include signup option
-  // Add this state to LoginScreen:
-  const [isSignup, setIsSignup] = useState(false);
-  const [name, setName] = useState('');
-  
-  // Add this to the form in LoginScreen:
-  {isSignup && (
-    <div>
-      <label className="block text-sm font-medium text-gray-700">Full Name</label>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        placeholder="Your full name"
-        required
-      />
-    </div>
-  )}
-  
-  // Update the form submit handler:
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    let success;
-    if (isSignup) {
-      success = await onSignup(email, password, name);
-    } else {
-      success = await onLogin(email, password);
-    }
-    
-    setLoading(false);
-    if (!success) {
-      // Error is handled by parent component
-    }
-  };
-  
-  // Add toggle button:
-  <button
-    type="button"
-    onClick={() => {
-      setIsSignup(!isSignup);
-      setError('');
-    }}
-    className="mt-2 w-full text-sm text-gray-600 hover:text-gray-800 underline"
-  >
-    {isSignup ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
-  </button>
-
-
 
   // Add this function to load invitations in your AdminView
   const loadInvitations = async () => {
