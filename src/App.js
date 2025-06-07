@@ -10,6 +10,7 @@ const ForecastingApp = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const clearError = () => setError('');
 
   // Initialize app - check auth and load data
   useEffect(() => {
@@ -514,6 +515,7 @@ const ForecastingApp = () => {
         onLogin={login}
         onSignup={signup}
         onResetPassword={resetPassword}
+        onClearError={clearError}
         error={error}
       />
     );
@@ -630,7 +632,7 @@ const ForecastingApp = () => {
   );
 };
 
-const LoginScreen = ({ onLogin, onSignup, onResetPassword, error }) => {
+const LoginScreen = ({ onLogin, onSignup, onResetPassword, onClearError, error }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -800,7 +802,7 @@ const LoginScreen = ({ onLogin, onSignup, onResetPassword, error }) => {
               type="button"
               onClick={() => {
                 setIsSignup(!isSignup);
-                setError('');
+                onClearError();
               }}
               className="mt-2 w-full text-sm text-gray-600 hover:text-gray-800 underline"
             >
