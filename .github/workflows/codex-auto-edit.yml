@@ -15,6 +15,12 @@ jobs:
       # 0) Check out code
       - uses: actions/checkout@v4
 
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'            # speeds up npm ci on repeats
+      
       # 1) Install deps so react-scripts exists
       - name: Install dependencies
         run: npm ci --no-audit --progress=false
