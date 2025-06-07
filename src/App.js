@@ -278,61 +278,6 @@ const ForecastingApp = () => {
       return false;
     }
   };
-  
-
-  
-  // Update your LoginScreen component to include signup option
-  // Add this state to LoginScreen:
-  const [isSignup, setIsSignup] = useState(false);
-  const [name, setName] = useState('');
-  
-  // Add this to the form in LoginScreen:
-  {isSignup && (
-    <div>
-      <label className="block text-sm font-medium text-gray-700">Full Name</label>
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        placeholder="Your full name"
-        required
-      />
-    </div>
-  )}
-  
-  // Update the form submit handler:
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    let success;
-    if (isSignup) {
-      success = await onSignup(email, password, name);
-    } else {
-      success = await onLogin(email, password);
-    }
-    
-    setLoading(false);
-    if (!success) {
-      // Error is handled by parent component
-    }
-  };
-  
-  // Add toggle button:
-  <button
-    type="button"
-    onClick={() => {
-      setIsSignup(!isSignup);
-      setError('');
-    }}
-    className="mt-2 w-full text-sm text-gray-600 hover:text-gray-800 underline"
-  >
-    {isSignup ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
-  </button>
-
-
-
   // Add this function to load invitations in your AdminView
   const loadInvitations = async () => {
     try {
@@ -564,7 +509,14 @@ const ForecastingApp = () => {
 
   // Show login screen if not authenticated
   if (!currentUser) {
-    return <LoginScreen onLogin={login} onResetPassword={resetPassword} error={error} />;
+    return (
+      <LoginScreen
+        onLogin={login}
+        onSignup={signup}
+        onResetPassword={resetPassword}
+        error={error}
+      />
+    );
   }
 
   // Show login screen if not authenticated
@@ -678,9 +630,11 @@ const ForecastingApp = () => {
   );
 };
 
-const LoginScreen = ({ onLogin, onResetPassword, error }) => {
+const LoginScreen = ({ onLogin, onSignup, onResetPassword, error }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isSignup, setIsSignup] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetSuccess, setResetSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -688,7 +642,12 @@ const LoginScreen = ({ onLogin, onResetPassword, error }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    const success = await onLogin(email, password);
+    let success;
+    if (isSignup) {
+      success = await onSignup(email, password, name);
+    } else {
+      success = await onLogin(email, password);
+    }
     setLoading(false);
     if (!success) {
       // Error is handled by parent component
@@ -779,7 +738,9 @@ const LoginScreen = ({ onLogin, onResetPassword, error }) => {
         <div className="text-center">
           <TrendingUp className="mx-auto h-12 w-12 text-blue-600" />
           <h2 className="mt-6 text-3xl font-bold text-gray-900">Economic Forecasting Platform</h2>
-          <p className="mt-2 text-sm text-gray-600">Sign in to start forecasting</p>
+          <p className="mt-2 text-sm text-gray-600">
+            {isSignup ? 'Create your account' : 'Sign in to start forecasting'}
+          </p>
         </div>
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="bg-white p-6 rounded-lg shadow-md">
@@ -806,6 +767,19 @@ const LoginScreen = ({ onLogin, onResetPassword, error }) => {
                   required
                 />
               </div>
+              {isSignup && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Full Name</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Your full name"
+                    required
+                  />
+                </div>
+              )}
             </div>
             {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
             <button
@@ -813,7 +787,7 @@ const LoginScreen = ({ onLogin, onResetPassword, error }) => {
               disabled={loading}
               className="mt-4 w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             >
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (isSignup ? 'Signing up...' : 'Signing in...') : isSignup ? 'Sign Up' : 'Sign In'}
             </button>
             <button
               type="button"
@@ -821,6 +795,16 @@ const LoginScreen = ({ onLogin, onResetPassword, error }) => {
               className="mt-2 w-full text-sm text-gray-600 hover:text-gray-800 underline"
             >
               Forgot Password?
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setIsSignup(!isSignup);
+                setError('');
+              }}
+              className="mt-2 w-full text-sm text-gray-600 hover:text-gray-800 underline"
+            >
+              {isSignup ? 'Already have an account? Sign In' : 'Need an account? Sign Up'}
             </button>
             <div className="mt-4 text-xs text-gray-500">
               <p><strong>Demo Accounts (for testing):</strong></p>
