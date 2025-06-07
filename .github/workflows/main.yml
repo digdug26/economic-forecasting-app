@@ -25,11 +25,10 @@ jobs:
       # 3) Let Codex fix or extend App.js, then run tests
       - name: Codex auto-edit
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          codex -a auto-edit \
-            --quiet \
-            "Debug src/App.js: fix Questions Answered metric; ensure getUserStats counts all forecasts."
+         codex --full-auto --yes --quiet \
+          "Fix getUserStats so Questions Answered counts all forecasts, then run npm test."
 
       # 4) Create a pull request with the patch
       - name: Open PR with patch
@@ -37,3 +36,4 @@ jobs:
         with:
           commit-message: "🤖 Codex patch"
           title: "Codex-generated update"
+
