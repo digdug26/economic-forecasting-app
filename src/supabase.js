@@ -33,6 +33,6 @@ export const getCurrentUser = async () => {
     .select('*')
     .eq('id', user.id)
     .single()
-  
+
   return userData
 }

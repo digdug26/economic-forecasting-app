@@ -420,12 +420,12 @@ const ForecastingApp = () => {
   const getUserStats = (userId) => {
     const userForecasts = forecasts.filter(f => f.user_id === userId);
     const resolvedQuestions = questions.filter(q => q.is_resolved);
-    const userResolvedForecasts = userForecasts.filter(f => 
+    const userResolvedForecasts = userForecasts.filter(f =>
       resolvedQuestions.some(q => q.id === f.question_id)
     );
 
     if (userResolvedForecasts.length === 0) {
-      return { brierScore: 0, questionsAnswered: 0, accuracy: 0 };
+      return { brierScore: 0, questionsAnswered: userForecasts.length, accuracy: 0 };
     }
 
     let totalBrierScore = 0;
@@ -447,7 +447,7 @@ const ForecastingApp = () => {
 
     return {
       brierScore: (totalBrierScore / userResolvedForecasts.length).toFixed(3),
-      questionsAnswered: userResolvedForecasts.length,
+      questionsAnswered: userForecasts.length,
       accuracy: userResolvedForecasts.length > 0 ? ((correctPredictions / userResolvedForecasts.length) * 100).toFixed(1) : 0
     };
   };
