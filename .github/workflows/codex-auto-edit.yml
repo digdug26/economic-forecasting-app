@@ -1,0 +1,39 @@
+name: Codex auto-debug & patch
+
+# When it runs
+on:
+  push:
+    paths:            # re-analyse whenever App.js changes
+      - "src/App.js"
+  workflow_dispatch:  # manual trigger button
+
+jobs:
+  codex:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 0) Check out code
+      - uses: actions/checkout@v4
+
+      # 1) Install deps so react-scripts exists
+      - name: Install dependencies
+        run: npm ci --no-audit --progress=false
+
+      # 2) Install the Codex CLI
+      - name: Install Codex CLI
+        run: npm i -g @openai/codex@latest
+
+      # 3) Let Codex patch + test
+      - name: Codex auto-edit
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          codex -a auto-edit --quiet \
+            "Debug src/App.js: fix getUserStats so Questions Answered counts all forecasts. Run npm test."
+
+      # 4) Create a pull request with the diff
+      - name: Open PR with patch
+        uses: peter-evans/create-pull-request@v6
+        with:
+          commit-message: "🤖 Codex patch"
+          title: "Codex-generated update"
