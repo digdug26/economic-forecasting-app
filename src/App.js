@@ -420,7 +420,7 @@ const ForecastingApp = () => {
 
   const getUserStats = (userId) => {
     const userForecasts = forecasts.filter(f => f.user_id === userId);
-    const resolvedQuestions = questions.filter(q => q.is_resolved);
+    const resolvedQuestions = questions.filter(q => q.isResolved);
     const userResolvedForecasts = userForecasts.filter(f =>
       resolvedQuestions.some(q => q.id === f.question_id)
     );
