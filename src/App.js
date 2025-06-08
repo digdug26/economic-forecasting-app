@@ -220,64 +220,45 @@ const ForecastingApp = () => {
   const createUser = async (userData) => {
     console.log('createUser called with:', userData);
     console.log('Current user role:', currentUser.role);
-    
+
     try {
       setError('');
-      
+
       // Check if current user is admin
       if (currentUser.role !== 'admin') {
         setError('Only admins can create users');
         return false;
       }
-      
+
       // For demo users, simulate user creation
       if (currentUser?.id?.startsWith('demo-')) {
         const newDemoUser = {
           id: `demo-user-${Date.now()}`,
           email: userData.email,
-          name: userData.name,
-          role: userData.role,
+          role: 'forecaster',
           must_change_password: true,
           created_at: new Date().toISOString()
         };
-        
+
         setUsers(prevUsers => [...prevUsers, newDemoUser]);
         return true;
       }
-  
-      // For real users, call our database function
-      const { data, error } = await supabase.rpc('create_new_user', {
-        user_email: userData.email,
-        user_password: userData.password,
-        user_name: userData.name,
-        user_role: userData.role
+
+      // Call serverless function to send invitation email
+      const { data, error } = await supabase.functions.invoke('invite-user', {
+        body: { email: userData.email }
       });
-  
+
       if (error) {
-        console.error('Database function error:', error);
+        console.error('Invite function error:', error);
         throw error;
       }
-  
-      // Check if the function returned an error
-      if (!data.success) {
-        setError(data.error);
-        return false;
-      }
-  
-      // Show success message with instructions
-      setError(`✅ User invitation created for ${userData.email}. 
-  
-  Instructions to send to the user:
-  1. Go to ${window.location.origin}
-  2. Click "Sign Up" (they'll need to create this option if it doesn't exist)
-  3. Sign up using the email: ${userData.email}
-  4. Their account will automatically be linked with the ${userData.role} role.
-  
-  ${data.message}`);
-  
+
+      setError(`✅ Invitation email sent to ${userData.email}`);
+
       await loadAppData(); // Refresh users list
       return true;
-      
+
     } catch (error) {
       console.error('Create user error:', error);
       setError(error.message || 'Failed to create user');
@@ -1400,10 +1381,7 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
     options: ['Option A', 'Option B', 'Option C']
   });
   const [newUser, setNewUser] = useState({
-    email: '',
-    password: '',
-    name: '',
-    role: 'forecaster'
+    email: ''
   });
   const [showCreateUser, setShowCreateUser] = useState(false);
 
@@ -1427,12 +1405,7 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
     e.preventDefault();
     const success = await onCreateUser(newUser);
     if (success) {
-      setNewUser({
-        email: '',
-        password: '',
-        name: '',
-        role: 'forecaster'
-      });
+      setNewUser({ email: '' });
       setShowCreateUser(false);
     }
   };
@@ -1791,47 +1764,14 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
             <h3 className="text-lg font-medium text-gray-900 mb-4">Create New User</h3>
             <form onSubmit={handleCreateUser} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700">Name</label>
-                <input
-                  type="text"
-                  value={newUser.name}
-                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  required
-                />
-              </div>
-              <div>
                 <label className="block text-sm font-medium text-gray-700">Email</label>
                 <input
                   type="email"
                   value={newUser.email}
-                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  onChange={(e) => setNewUser({ email: e.target.value })}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Temporary Password</label>
-                <input
-                  type="password"
-                  value={newUser.password}
-                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  required
-                  minLength="6"
-                />
-                <p className="text-xs text-gray-500 mt-1">User will be required to change this on first login</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Role</label>
-                <select
-                  value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="forecaster">Forecaster</option>
-                  <option value="admin">Admin</option>
-                </select>
               </div>
               <div className="flex space-x-3 pt-4">
                 <button
@@ -1844,7 +1784,7 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
                   type="button"
                   onClick={() => {
                     setShowCreateUser(false);
-                    setNewUser({ email: '', password: '', name: '', role: 'forecaster' });
+                    setNewUser({ email: '' });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
                 >
