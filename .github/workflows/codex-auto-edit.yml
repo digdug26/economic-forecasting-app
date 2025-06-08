@@ -7,6 +7,10 @@ on:
       - "src/App.js"
   workflow_dispatch:  # manual trigger button
 
+permissions:
+  contents: write        # allow git push
+  pull-requests: write   # allow PR creation
+  
 jobs:
   codex:
     runs-on: ubuntu-latest
