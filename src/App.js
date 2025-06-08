@@ -308,7 +308,8 @@ const ForecastingApp = () => {
         options: {
           data: {
             name: name
-          }
+          },
+          emailRedirectTo: window.location.origin,
         }
       });
   
