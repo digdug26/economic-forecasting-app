@@ -89,6 +89,8 @@ const ForecastingApp = () => {
         title: "Will the Federal Reserve raise interest rates by June 30, 2025?",
         type: "binary",
         description: "Based on FOMC decisions and official announcements",
+        data_resource_name: "Federal Reserve",
+        data_resource_url: "https://www.federalreserve.gov/",
         createdDate: "2025-05-01",
         resolvedDate: null,
         resolution: null,
@@ -100,6 +102,8 @@ const ForecastingApp = () => {
         type: "three-category",
         description: "Compared to June 2025 rate, rounded to nearest tenth of one percent",
         categories: ["Increase", "Remain Unchanged", "Decrease"],
+        data_resource_name: "Bureau of Labor Statistics",
+        data_resource_url: "https://www.bls.gov/",
         createdDate: "2025-05-15",
         resolvedDate: null,
         resolution: null,
@@ -111,6 +115,8 @@ const ForecastingApp = () => {
         type: "multiple-choice",
         description: "Based on BEA sector-specific GDP data",
         options: ["Technology", "Healthcare", "Financial Services", "Manufacturing", "Energy"],
+        data_resource_name: "Bureau of Economic Analysis",
+        data_resource_url: "https://www.bea.gov/",
         createdDate: "2025-05-20",
         resolvedDate: null,
         resolution: null,
@@ -344,14 +350,18 @@ const ForecastingApp = () => {
       
       const { data, error } = await supabase
         .from('questions')
-        .insert([{
-          title: questionData.title,
-          description: questionData.description,
-          type: questionData.type,
-          categories: questionData.type === 'three-category' ? questionData.categories : null,
-          options: questionData.type === 'multiple-choice' ? questionData.options : null,
-          created_by: currentUser.id
-        }])
+        .insert([
+          {
+            title: questionData.title,
+            description: questionData.description,
+            data_resource_name: questionData.dataResourceName || null,
+            data_resource_url: questionData.dataResourceUrl || null,
+            type: questionData.type,
+            categories: questionData.type === 'three-category' ? questionData.categories : null,
+            options: questionData.type === 'multiple-choice' ? questionData.options : null,
+            created_by: currentUser.id
+          }
+        ])
         .select();
 
       if (error) throw error;
@@ -1157,6 +1167,19 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
         <h3 className="text-lg font-medium text-slate-900 mb-4">Question Resolved</h3>
+        {question.data_resource_name && (
+          <p className="text-sm text-slate-600 mb-4">
+            Data resource:{' '}
+            <a
+              href={question.data_resource_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-600 underline"
+            >
+              {question.data_resource_name}
+            </a>
+          </p>
+        )}
         <div className="bg-gray-50 p-4 rounded-lg">
           <p className="text-sm text-gray-600 mb-2">Resolution:</p>
           <p className="font-medium text-gray-900">{String(question.resolution)}</p>
@@ -1186,7 +1209,20 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
       <h3 className="text-lg font-medium text-slate-900 mb-4">
         {existingForecast ? 'Update Forecast' : 'Make Forecast'}
       </h3>
-      
+      {question.data_resource_name && (
+        <p className="text-sm text-slate-600 mb-4">
+          Data resource:{' '}
+          <a
+            href={question.data_resource_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-600 underline"
+          >
+            {question.data_resource_name}
+          </a>
+        </p>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-4">
         {question.type === 'binary' && (
           <div>
@@ -1357,6 +1393,8 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
   const [newQuestion, setNewQuestion] = useState({
     title: '',
     description: '',
+    dataResourceName: '',
+    dataResourceUrl: '',
     type: 'binary',
     categories: ['Increase', 'Remain Unchanged', 'Decrease'],
     options: ['Option A', 'Option B', 'Option C']
@@ -1376,6 +1414,8 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
       setNewQuestion({
         title: '',
         description: '',
+        dataResourceName: '',
+        dataResourceUrl: '',
         type: 'binary',
         categories: ['Increase', 'Remain Unchanged', 'Decrease'],
         options: ['Option A', 'Option B', 'Option C']
@@ -1487,6 +1527,32 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
                   rows="3"
                   className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Provide additional context, resolution criteria, data sources, etc."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Data Resource Name
+                </label>
+                <input
+                  type="text"
+                  value={newQuestion.dataResourceName}
+                  onChange={(e) => setNewQuestion({ ...newQuestion, dataResourceName: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., Bureau of Labor Statistics"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Data Resource URL
+                </label>
+                <input
+                  type="text"
+                  value={newQuestion.dataResourceUrl}
+                  onChange={(e) => setNewQuestion({ ...newQuestion, dataResourceUrl: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://example.com/data"
                 />
               </div>
 
@@ -1899,6 +1965,19 @@ const QuestionManagementCard = ({ question, forecasts, onResolve }) => {
         <div className="flex-1">
           <h4 className="font-medium text-slate-900">{question.title}</h4>
           <p className="text-sm text-slate-600 mt-1">{question.description}</p>
+          {question.data_resource_name && (
+            <p className="text-xs text-slate-500 mt-1">
+              Data resource:{' '}
+              <a
+                href={question.data_resource_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 underline"
+              >
+                {question.data_resource_name}
+              </a>
+            </p>
+          )}
           <div className="flex items-center space-x-4 mt-2 text-xs text-slate-500">
             <span>Type: {question.type}</span>
             <span>Created: {question.createdDate}</span>
