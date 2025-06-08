@@ -92,6 +92,7 @@ const ForecastingApp = () => {
         data_resource_name: "Federal Reserve",
         data_resource_url: "https://www.federalreserve.gov/",
         createdDate: "2025-05-01",
+        close_date: "2025-06-01",
         resolvedDate: null,
         resolution: null,
         isResolved: false
@@ -105,6 +106,7 @@ const ForecastingApp = () => {
         data_resource_name: "Bureau of Labor Statistics",
         data_resource_url: "https://www.bls.gov/",
         createdDate: "2025-05-15",
+        close_date: "2025-06-15",
         resolvedDate: null,
         resolution: null,
         isResolved: false
@@ -118,6 +120,7 @@ const ForecastingApp = () => {
         data_resource_name: "Bureau of Economic Analysis",
         data_resource_url: "https://www.bea.gov/",
         createdDate: "2025-05-20",
+        close_date: "2025-06-20",
         resolvedDate: null,
         resolution: null,
         isResolved: false
@@ -337,6 +340,7 @@ const ForecastingApp = () => {
             description: questionData.description,
             data_resource_name: questionData.dataResourceName || null,
             data_resource_url: questionData.dataResourceUrl || null,
+            close_date: questionData.closeDate || null,
             type: questionData.type,
             categories: questionData.type === 'three-category' ? questionData.categories : null,
             options: questionData.type === 'multiple-choice' ? questionData.options : null,
@@ -351,6 +355,41 @@ const ForecastingApp = () => {
       return true;
     } catch (error) {
       console.error('Create question error:', error);
+      setError(error.message);
+      return false;
+    }
+  };
+
+  const updateQuestion = async (id, updates) => {
+    try {
+      setError('');
+
+      if (currentUser.role !== 'admin') {
+        setError('Only admins can edit questions');
+        return false;
+      }
+
+      const { data, error } = await supabase
+        .from('questions')
+        .update({
+          title: updates.title,
+          description: updates.description,
+          data_resource_name: updates.dataResourceName || null,
+          data_resource_url: updates.dataResourceUrl || null,
+          close_date: updates.closeDate || null,
+          type: updates.type,
+          categories: updates.type === 'three-category' ? updates.categories : null,
+          options: updates.type === 'multiple-choice' ? updates.options : null,
+        })
+        .eq('id', id)
+        .select();
+
+      if (error) throw error;
+
+      await loadAppData();
+      return true;
+    } catch (error) {
+      console.error('Update question error:', error);
       setError(error.message);
       return false;
     }
@@ -611,10 +650,11 @@ const ForecastingApp = () => {
           <LeaderboardView leaderboard={getLeaderboard()} />
         )}
         {activeView === 'admin' && currentUser.role === 'admin' && (
-          <AdminView 
+          <AdminView
             questions={questions}
             users={users}
             onCreateQuestion={createQuestion}
+            onUpdateQuestion={updateQuestion}
             onCreateUser={createUser}
             onResolveQuestion={resolveQuestion}
             forecasts={forecasts}
@@ -1369,13 +1409,14 @@ const LeaderboardView = ({ leaderboard }) => {
   );
 };
 
-const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolveQuestion, forecasts }) => {
+const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolveQuestion, onUpdateQuestion, forecasts }) => {
   const [activeTab, setActiveTab] = useState('create');
   const [newQuestion, setNewQuestion] = useState({
     title: '',
     description: '',
     dataResourceName: '',
     dataResourceUrl: '',
+    closeDate: '',
     type: 'binary',
     categories: ['Increase', 'Remain Unchanged', 'Decrease'],
     options: ['Option A', 'Option B', 'Option C']
@@ -1394,6 +1435,7 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
         description: '',
         dataResourceName: '',
         dataResourceUrl: '',
+        closeDate: '',
         type: 'binary',
         categories: ['Increase', 'Remain Unchanged', 'Decrease'],
         options: ['Option A', 'Option B', 'Option C']
@@ -1412,6 +1454,10 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
 
   const handleResolveQuestion = async (questionId, resolution) => {
     await onResolveQuestion(questionId, resolution);
+  };
+
+  const handleUpdateQuestion = async (id, data) => {
+    await onUpdateQuestion(id, data);
   };
 
   return (
@@ -1531,6 +1577,18 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Close Date
+                </label>
+                <input
+                  type="date"
+                  value={newQuestion.closeDate}
+                  onChange={(e) => setNewQuestion({ ...newQuestion, closeDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
                   Question Type
                 </label>
                 <select
@@ -1633,6 +1691,7 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
                   question={question}
                   forecasts={forecasts}
                   onResolve={handleResolveQuestion}
+                  onUpdate={handleUpdateQuestion}
                 />
               ))}
             </div>
@@ -1886,8 +1945,19 @@ const PendingInvitations = () => {
 
 
 
-const QuestionManagementCard = ({ question, forecasts, onResolve }) => {
+const QuestionManagementCard = ({ question, forecasts, onResolve, onUpdate }) => {
   const [showResolve, setShowResolve] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [editData, setEditData] = useState({
+    title: question.title,
+    description: question.description,
+    dataResourceName: question.data_resource_name || '',
+    dataResourceUrl: question.data_resource_url || '',
+    closeDate: question.close_date || '',
+    type: question.type,
+    categories: question.categories || ['Increase', 'Remain Unchanged', 'Decrease'],
+    options: question.options || ['Option A', 'Option B', 'Option C']
+  });
   const [resolution, setResolution] = useState('');
   const questionForecasts = forecasts.filter(f => f.question_id === question.id);
 
@@ -1921,24 +1991,35 @@ const QuestionManagementCard = ({ question, forecasts, onResolve }) => {
           <div className="flex items-center space-x-4 mt-2 text-xs text-slate-500">
             <span>Type: {question.type}</span>
             <span>Created: {question.createdDate}</span>
+            {question.close_date && (
+              <span>Close: {question.close_date}</span>
+            )}
             <span>Forecasts: {questionForecasts.length}</span>
           </div>
         </div>
         <div className="ml-4">
           {question.isResolved ? (
             <div className="text-right">
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-                Resolved
-              </span>
-              <p className="text-xs text-slate-500 mt-1">Result: {String(question.resolution)}</p>
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+              Resolved
+            </span>
+            <p className="text-xs text-slate-500 mt-1">Result: {String(question.resolution)}</p>
             </div>
           ) : (
-            <button
-              onClick={() => setShowResolve(!showResolve)}
-              className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-            >
-              Resolve
-            </button>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowEdit(true)}
+                className="bg-gray-200 text-gray-800 px-3 py-1 rounded text-sm hover:bg-gray-300"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => setShowResolve(!showResolve)}
+                className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+              >
+                Resolve
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -2008,6 +2089,66 @@ const QuestionManagementCard = ({ question, forecasts, onResolve }) => {
               Confirm Resolution
             </button>
           )}
+        </div>
+      )}
+
+      {showEdit && !question.isResolved && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white p-6 rounded-lg w-full max-w-lg space-y-4">
+            <h5 className="text-lg font-medium text-slate-900">Edit Question</h5>
+            <form onSubmit={async (e) => { e.preventDefault(); const success = await onUpdate(question.id, editData); if (success) setShowEdit(false); }} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Title</label>
+                <input type="text" value={editData.title} onChange={(e) => setEditData({ ...editData, title: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
+                <textarea value={editData.description} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows="3" className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Data Resource Name</label>
+                <input type="text" value={editData.dataResourceName} onChange={(e) => setEditData({ ...editData, dataResourceName: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Data Resource URL</label>
+                <input type="text" value={editData.dataResourceUrl} onChange={(e) => setEditData({ ...editData, dataResourceUrl: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Question Type</label>
+                <select value={editData.type} onChange={(e) => setEditData({ ...editData, type: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                  <option value="binary">Binary (Yes/No)</option>
+                  <option value="three-category">Three Category</option>
+                  <option value="multiple-choice">Multiple Choice</option>
+                </select>
+              </div>
+              {editData.type === 'three-category' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Categories</label>
+                  <div className="space-y-2">
+                    {editData.categories.map((c, i) => (
+                      <input key={i} type="text" value={c} onChange={(e) => { const cats = [...editData.categories]; cats[i] = e.target.value; setEditData({ ...editData, categories: cats }); }} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+                    ))}
+                  </div>
+                </div>
+              )}
+              {editData.type === 'multiple-choice' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Options</label>
+                  <div className="space-y-2">
+                    {editData.options.map((opt, i) => (
+                      <input key={i} type="text" value={opt} onChange={(e) => { const opts = [...editData.options]; opts[i] = e.target.value; setEditData({ ...editData, options: opts }); }} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Close Date</label>
+                <input type="date" value={editData.closeDate} onChange={(e) => setEditData({ ...editData, closeDate: e.target.value })} className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+              <button type="submit" className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Save</button>
+              <button type="button" onClick={() => setShowEdit(false)} className="ml-2 text-sm text-slate-500">Cancel</button>
+            </form>
+          </div>
         </div>
       )}
     </div>
