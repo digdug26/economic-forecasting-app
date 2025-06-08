@@ -29,6 +29,20 @@ jobs:
       - name: Install Codex CLI
         run: npm i -g @openai/codex@latest
 
+      - name: Confirm Node version before Codex
+        run: |
+          echo "Node is: $(node -v)"
+          which node
+
+      - name: Codex auto-edit
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          REACT_APP_SUPABASE_URL: "https://dummy"
+          REACT_APP_SUPABASE_ANON_KEY: "dummy"
+        run: |
+          codex --full-auto --yes --quiet \
+            "Fix getUserStats so Questions Answered counts all forecasts, then run npm test." 
+      
       # 3) Let Codex patch + test
       - name: Codex auto-edit
         env:
