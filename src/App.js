@@ -785,7 +785,7 @@ const LoginScreen = ({ onLogin, onResetPassword, error }) => {
 const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFeed }) => {
   const stats = getUserStats(currentUser.id);
   const activeQuestions = questions.filter(q => !q.isResolved);
-  const userForecasts = forecasts.filter(f => f.userId === currentUser.id);
+  const userForecasts = forecasts.filter(f => f.user_id === currentUser.id);
 
   return (
     <div className="space-y-6">
@@ -837,7 +837,7 @@ const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFe
             <div className="p-6">
               <div className="space-y-4">
                 {activeQuestions.slice(0, 5).map(question => {
-                  const userForecast = userForecasts.find(f => f.questionId === question.id);
+                  const userForecast = userForecasts.find(f => f.question_id === question.id);
                   return (
                     <div key={question.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                       <div className="flex-1">
@@ -957,7 +957,9 @@ const QuestionsView = ({ questions, forecasts, currentUser, onSubmitForecast }) 
 };
 
 const QuestionCard = ({ question, forecasts, currentUser, onSelect, isSelected }) => {
-  const userForecast = forecasts.find(f => f.questionId === question.id && f.userId === currentUser.id);
+  const userForecast = forecasts.find(
+    f => f.question_id === question.id && f.user_id === currentUser.id
+  );
   
   return (
     <div 
@@ -1006,7 +1008,9 @@ const QuestionCard = ({ question, forecasts, currentUser, onSelect, isSelected }
 };
 
 const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) => {
-  const existingForecast = forecasts.find(f => f.questionId === question.id && f.userId === currentUser.id);
+  const existingForecast = forecasts.find(
+    f => f.question_id === question.id && f.user_id === currentUser.id
+  );
   
   const [forecast, setForecast] = useState(() => {
     if (existingForecast) {
@@ -1763,7 +1767,7 @@ const PendingInvitations = () => {
 const QuestionManagementCard = ({ question, forecasts, onResolve }) => {
   const [showResolve, setShowResolve] = useState(false);
   const [resolution, setResolution] = useState('');
-  const questionForecasts = forecasts.filter(f => f.questionId === question.id);
+  const questionForecasts = forecasts.filter(f => f.question_id === question.id);
 
   const handleResolve = () => {
     if (resolution) {
