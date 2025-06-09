@@ -384,6 +384,30 @@ const ForecastingApp = () => {
         return false;
       }
 
+      // If running in demo mode, update local state without making a Supabase request
+      if (currentUser?.id?.startsWith('demo-')) {
+        setQuestions(prevQuestions =>
+          prevQuestions.map(q =>
+            q.id === id
+              ? {
+                  ...q,
+                  title: updates.title,
+                  description: updates.description,
+                  data_resource_name: updates.dataResourceName || null,
+                  data_resource_url: updates.dataResourceUrl || null,
+                  close_date: updates.closeDate || null,
+                  type: updates.type,
+                  categories:
+                    updates.type === 'three-category' ? updates.categories : null,
+                  options:
+                    updates.type === 'multiple-choice' ? updates.options : null,
+                }
+              : q
+          )
+        );
+        return true;
+      }
+
       const { data, error } = await supabase
         .from('questions')
         .update({
