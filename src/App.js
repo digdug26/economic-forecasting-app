@@ -1197,22 +1197,45 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
     .filter(f => f.question_id === question.id && f.user_id === currentUser.id)
     .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
 
+  const normalizeForecast = (f) => {
+    const copy = { ...f };
+    if (copy['remain unchanged'] !== undefined && copy.unchanged === undefined) {
+      copy.unchanged = copy['remain unchanged'];
+    }
+    return copy;
+  };
+
   const formatForecast = (f) => {
+    const data = normalizeForecast(f);
     if (question.type === 'binary') {
-      return `${f.probability}%`;
+      return `${data.probability}%`;
     }
     if (question.type === 'three-category') {
-      return `Increase: ${f.increase}% | Unchanged: ${f.unchanged}% | Decrease: ${f.decrease}%`;
+      return `Increase: ${data.increase}% | Unchanged: ${data.unchanged}% | Decrease: ${data.decrease}%`;
     }
     if (question.type === 'multiple-choice') {
-      return question.options.map(opt => `${opt}: ${f[opt]}%`).join(' | ');
+      return question.options.map(opt => `${opt}: ${data[opt]}%`).join(' | ');
     }
-    return JSON.stringify(f);
+    return JSON.stringify(data);
+  };
+
+  const formatForecastLines = (f) => {
+    const data = normalizeForecast(f);
+    if (question.type === 'binary') {
+      return `Probability: ${data.probability}%`;
+    }
+    if (question.type === 'three-category') {
+      return `Increase: ${data.increase}%\nUnchanged: ${data.unchanged}%\nDecrease: ${data.decrease}%`;
+    }
+    if (question.type === 'multiple-choice') {
+      return question.options.map(opt => `${opt}: ${data[opt]}%`).join('\n');
+    }
+    return JSON.stringify(data);
   };
   
   const [forecast, setForecast] = useState(() => {
     if (existingForecast) {
-      return existingForecast.forecast;
+      return normalizeForecast(existingForecast.forecast);
     }
     if (question.type === 'binary') {
       return { probability: 50 };
@@ -1230,9 +1253,19 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
     return {};
   });
 
-  const handleSubmit = (e) => {
+  const total = Object.values(forecast).reduce((sum, val) => sum + (Number(val) || 0), 0);
+  const requiresTotal = question.type === 'three-category' || question.type === 'multiple-choice';
+  const isValid = !requiresTotal || total === 100;
+
+  const [showConfirmation, setShowConfirmation] = useState(false);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmitForecast(question.id, forecast);
+    const success = await onSubmitForecast(question.id, forecast);
+    if (success) {
+      setShowConfirmation(true);
+      setTimeout(() => setShowConfirmation(false), 3000);
+    }
   };
 
   if (question.isResolved) {
@@ -1267,11 +1300,16 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
               <p className="font-medium text-blue-900">{existingForecast.forecast.probability}%</p>
             )}
             {question.type === 'three-category' && (
-              <div className="space-y-1">
-                <p className="text-sm">Increase: {existingForecast.forecast.increase}%</p>
-                <p className="text-sm">Unchanged: {existingForecast.forecast.unchanged}%</p>
-                <p className="text-sm">Decrease: {existingForecast.forecast.decrease}%</p>
-              </div>
+              (() => {
+                const data = normalizeForecast(existingForecast.forecast);
+                return (
+                  <div className="space-y-1">
+                    <p className="text-sm">Increase: {data.increase}%</p>
+                    <p className="text-sm">Unchanged: {data.unchanged}%</p>
+                    <p className="text-sm">Decrease: {data.decrease}%</p>
+                  </div>
+                );
+              })()
             )}
           </div>
         )}
@@ -1335,7 +1373,8 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
         {question.type === 'three-category' && (
           <div className="space-y-3">
             {question.categories.map((category, index) => {
-              const key = category.toLowerCase();
+              const lower = category.toLowerCase();
+              const key = lower.includes('unchanged') ? 'unchanged' : lower;
               return (
                 <div key={category}>
                   <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -1345,7 +1384,7 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
                     type="number"
                     min="0"
                     max="100"
-                    value={forecast[key]}
+                    value={forecast[key] || 0}
                     onChange={(e) => {
                       const newValue = parseInt(e.target.value) || 0;
                       setForecast({ ...forecast, [key]: newValue });
@@ -1357,6 +1396,9 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
             })}
             <div className="text-sm text-slate-600">
               Total: {Object.values(forecast).reduce((sum, val) => sum + (val || 0), 0)}%
+              {Object.values(forecast).reduce((sum, val) => sum + (val || 0), 0) !== 100 && (
+                <span className="text-red-600 ml-2">Total must equal 100 %</span>
+              )}
             </div>
           </div>
         )}
@@ -1383,17 +1425,29 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
             ))}
             <div className="text-sm text-slate-600">
               Total: {Object.values(forecast).reduce((sum, val) => sum + (val || 0), 0)}%
+              {Object.values(forecast).reduce((sum, val) => sum + (val || 0), 0) !== 100 && (
+                <span className="text-red-600 ml-2">Total must equal 100 %</span>
+              )}
             </div>
           </div>
         )}
 
         <button
           type="submit"
-          className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          disabled={!isValid}
+          className={`w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 ${!isValid ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           {existingForecast ? 'Update Forecast' : 'Submit Forecast'}
         </button>
       </form>
+
+      {showConfirmation && (
+        <div className="mt-4 p-3 bg-green-50 rounded-lg">
+          <p className="text-sm text-green-700 whitespace-pre-line">
+            {formatForecastLines(forecast)}
+          </p>
+        </div>
+      )}
 
       {existingForecast && (
         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
