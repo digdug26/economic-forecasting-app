@@ -1172,6 +1172,19 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
   const userForecasts = forecasts
     .filter(f => f.question_id === question.id && f.user_id === currentUser.id)
     .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+  const formatForecast = (f) => {
+    if (question.type === 'binary') {
+      return `${f.probability}%`;
+    }
+    if (question.type === 'three-category') {
+      return `Increase: ${f.increase}% | Unchanged: ${f.unchanged}% | Decrease: ${f.decrease}%`;
+    }
+    if (question.type === 'multiple-choice') {
+      return question.options.map(opt => `${opt}: ${f[opt]}%`).join(' | ');
+    }
+    return JSON.stringify(f);
+  };
   
   const [forecast, setForecast] = useState(() => {
     if (existingForecast) {
@@ -1246,7 +1259,7 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
               {userForecasts.map((f) => (
                 <div key={f.id} className="flex justify-between">
                   <span>{new Date(f.updated_at).toLocaleString()}</span>
-                  <span className="font-mono">{JSON.stringify(f.forecast)}</span>
+                  <span className="font-mono">{formatForecast(f.forecast)}</span>
                 </div>
               ))}
             </div>
@@ -1374,7 +1387,7 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
               <div key={f.id} className="flex justify-between">
                 <span>{new Date(f.updated_at).toLocaleString()}</span>
                 <span className="font-mono">
-                  {JSON.stringify(f.forecast)}
+                  {formatForecast(f.forecast)}
                 </span>
               </div>
             ))}
