@@ -2,6 +2,19 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## Environment Setup
+
+Before building the project or deploying it to Vercel, make sure the following
+environment variables are configured:
+
+- `NEXT_PUBLIC_SITE_URL` (or `REACT_APP_SITE_URL`)
+- `REACT_APP_SUPABASE_URL`
+- `REACT_APP_SUPABASE_ANON_KEY`
+- Optional: `REACT_APP_SUPABASE_SERVICE_ROLE_KEY`
+
+These values must be provided before running `npm run build` or starting a
+deployment.
+
 ## Available Scripts
 
 In the project directory, you can run:
