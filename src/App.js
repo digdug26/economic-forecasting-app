@@ -264,7 +264,7 @@ const ForecastingApp = () => {
         const newDemoUser = {
           id: `demo-user-${Date.now()}`,
           email: userData.email,
-          role: 'forecaster',
+          role: userData.role || 'forecaster',
           must_change_password: true,
           created_at: new Date().toISOString()
         };
@@ -275,7 +275,7 @@ const ForecastingApp = () => {
 
       // Call serverless function to send invitation email
       const { data, error } = await supabase.functions.invoke('invite-user', {
-        body: { email: userData.email }
+        body: { email: userData.email, role: userData.role }
       });
 
       if (error) {
@@ -1652,7 +1652,8 @@ const AdminView = ({
     options: ['Option A', 'Option B', 'Option C']
   });
   const [newUser, setNewUser] = useState({
-    email: ''
+    email: '',
+    role: 'forecaster'
   });
   const [showCreateUser, setShowCreateUser] = useState(false);
 
@@ -1677,7 +1678,7 @@ const AdminView = ({
     e.preventDefault();
     const success = await onCreateUser(newUser);
     if (success) {
-      setNewUser({ email: '' });
+      setNewUser({ email: '', role: 'forecaster' });
       setShowCreateUser(false);
     }
   };
@@ -2078,10 +2079,21 @@ const AdminView = ({
                 <input
                   type="email"
                   value={newUser.email}
-                  onChange={(e) => setNewUser({ email: e.target.value })}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
                   className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700">User Type</label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="forecaster">Forecaster</option>
+                  <option value="admin">Admin</option>
+                </select>
               </div>
               <div className="flex space-x-3 pt-4">
                 <button
@@ -2094,7 +2106,7 @@ const AdminView = ({
                   type="button"
                   onClick={() => {
                     setShowCreateUser(false);
-                    setNewUser({ email: '' });
+                    setNewUser({ email: '', role: 'forecaster' });
                   }}
                   className="flex-1 bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500"
                 >
