@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check } from 'lucide-react';
-import { supabase, getCurrentUser, isAdmin } from './supabase';
+import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
+import { supabase, supabaseAdmin, getCurrentUser, isAdmin } from './supabase';
 
 const ForecastingApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -10,6 +10,12 @@ const ForecastingApp = () => {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [toast, setToast] = useState('');
+
+  const showToast = (msg) => {
+    setToast(msg);
+    setTimeout(() => setToast(''), 3000);
+  };
 
   // Initialize app - check auth and load data
   useEffect(() => {
@@ -222,7 +228,7 @@ const ForecastingApp = () => {
       setError('');
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/reset-password`
       });
   
       if (error) throw error;
@@ -280,6 +286,38 @@ const ForecastingApp = () => {
     } catch (error) {
       console.error('Create user error:', error);
       setError(error.message || 'Failed to create user');
+      return false;
+    }
+  };
+
+  const deleteUser = async (uid) => {
+    try {
+      setError('');
+      if (currentUser.role !== 'admin') {
+        setError('Only admins can delete users');
+        return false;
+      }
+
+      if (currentUser?.id?.startsWith('demo-')) {
+        setUsers(prev => prev.filter(u => u.id !== uid));
+        showToast('User deleted');
+        return true;
+      }
+
+      if (supabaseAdmin) {
+        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(uid);
+        if (authError) throw authError;
+      }
+
+      const { error } = await supabase.from('users').delete().eq('id', uid);
+      if (error) throw error;
+
+      await loadAppData();
+      showToast('User deleted');
+      return true;
+    } catch (error) {
+      console.error('Delete user error:', error);
+      setError(error.message);
       return false;
     }
   };
@@ -460,6 +498,33 @@ const ForecastingApp = () => {
       return true;
     } catch (error) {
       console.error('Resolve question error:', error);
+      setError(error.message);
+      return false;
+    }
+  };
+
+  const deleteQuestion = async (id) => {
+    try {
+      setError('');
+      if (currentUser.role !== 'admin') {
+        setError('Only admins can delete questions');
+        return false;
+      }
+
+      if (currentUser?.id?.startsWith('demo-')) {
+        setQuestions(prev => prev.filter(q => q.id !== id));
+        showToast('Question deleted');
+        return true;
+      }
+
+      const { error } = await supabase.from('questions').delete().eq('id', id);
+      if (error) throw error;
+
+      await loadAppData();
+      showToast('Question deleted');
+      return true;
+    } catch (error) {
+      console.error('Delete question error:', error);
       setError(error.message);
       return false;
     }
@@ -696,10 +761,18 @@ const ForecastingApp = () => {
             onUpdateQuestion={updateQuestion}
             onCreateUser={createUser}
             onResolveQuestion={resolveQuestion}
+            onDeleteQuestion={deleteQuestion}
+            onDeleteUser={deleteUser}
+            currentUser={currentUser}
             forecasts={forecasts}
           />
         )}
       </main>
+      {toast && (
+        <div className="fixed bottom-4 right-4 bg-green-600 text-white px-4 py-2 rounded">
+          {toast}
+        </div>
+      )}
     </div>
   );
 };
@@ -1550,7 +1623,18 @@ const LeaderboardView = ({ leaderboard }) => {
   );
 };
 
-const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolveQuestion, onUpdateQuestion, forecasts }) => {
+const AdminView = ({
+  questions,
+  users,
+  onCreateQuestion,
+  onCreateUser,
+  onResolveQuestion,
+  onUpdateQuestion,
+  onDeleteQuestion,
+  onDeleteUser,
+  currentUser,
+  forecasts,
+}) => {
   const [activeTab, setActiveTab] = useState('create');
   const [newQuestion, setNewQuestion] = useState({
     title: '',
@@ -1599,6 +1683,18 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
 
   const handleUpdateQuestion = async (id, data) => {
     return await onUpdateQuestion(id, data);
+  };
+
+  const handleDeleteQuestion = async (id) => {
+    if (window.confirm('Delete this question? This cannot be undone.')) {
+      await onDeleteQuestion(id);
+    }
+  };
+
+  const handleDeleteUser = async (uid) => {
+    if (window.confirm('Delete this user? This cannot be undone.')) {
+      await onDeleteUser(uid);
+    }
   };
 
   return (
@@ -1833,6 +1929,7 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
                   forecasts={forecasts}
                   onResolve={handleResolveQuestion}
                   onUpdate={handleUpdateQuestion}
+                  onDelete={handleDeleteQuestion}
                 />
               ))}
             </div>
@@ -1861,6 +1958,7 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
                         <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">
                           Status
                         </th>
+                        <th className="px-6 py-3" />
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-slate-200">
@@ -1893,6 +1991,13 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
                               <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                                 Active
                               </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            {user.id !== currentUser.id && (
+                              <button onClick={() => handleDeleteUser(user.id)} className="text-red-600 hover:text-red-900">
+                                <Trash className="w-4 h-4" />
+                              </button>
                             )}
                           </td>
                         </tr>
@@ -2086,7 +2191,7 @@ const PendingInvitations = () => {
 
 
 
-const QuestionManagementCard = ({ question, forecasts, onResolve, onUpdate }) => {
+const QuestionManagementCard = ({ question, forecasts, onResolve, onUpdate, onDelete }) => {
   const [showResolve, setShowResolve] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [editData, setEditData] = useState({
@@ -2153,6 +2258,12 @@ const QuestionManagementCard = ({ question, forecasts, onResolve, onUpdate }) =>
                 className="bg-gray-200 text-gray-800 px-3 py-1 rounded text-sm hover:bg-gray-300"
               >
                 Edit
+              </button>
+              <button
+                onClick={() => onDelete(question.id)}
+                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+              >
+                Delete
               </button>
               <button
                 onClick={() => setShowResolve(!showResolve)}

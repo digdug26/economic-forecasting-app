@@ -3,13 +3,20 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import Signup from './pages/Signup';
+import ResetPassword from './pages/ResetPassword';
 import reportWebVitals from './reportWebVitals';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 const path = window.location.pathname;
 root.render(
   <React.StrictMode>
-    {path.startsWith('/signup') ? <Signup /> : <App />}
+    {path.startsWith('/signup') ? (
+      <Signup />
+    ) : path.startsWith('/reset-password') ? (
+      <ResetPassword />
+    ) : (
+      <App />
+    )}
   </React.StrictMode>
 );
 
