@@ -9,6 +9,12 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const supabase = createClient(supabaseUrl, supabaseKey)
 
+// Optional admin client for server-side operations
+const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
+export const supabaseAdmin = serviceRoleKey
+  ? createClient(supabaseUrl, serviceRoleKey)
+  : null
+
 // Helper function to check if user is admin
 export const isAdmin = async () => {
   const { data: { user } } = await supabase.auth.getUser()
