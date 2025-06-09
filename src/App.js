@@ -1520,7 +1520,7 @@ const AdminView = ({ questions, users, onCreateQuestion, onCreateUser, onResolve
   };
 
   const handleUpdateQuestion = async (id, data) => {
-    await onUpdateQuestion(id, data);
+    return await onUpdateQuestion(id, data);
   };
 
   return (
