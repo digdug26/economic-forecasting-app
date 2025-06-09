@@ -63,7 +63,10 @@ const ForecastingApp = () => {
   const loadAppData = async () => {
     try {
       const [questionsResult, forecastsResult, usersResult] = await Promise.all([
-        supabase.from('questions').select('*').order('created_at', { ascending: false }),
+        supabase
+          .from('questions')
+          .select('*')
+          .order('close_date', { ascending: true, nullsFirst: false }),
         supabase.from('forecasts').select('*'),
         supabase.from('users').select('*')
       ]);
@@ -72,7 +75,13 @@ const ForecastingApp = () => {
       if (forecastsResult.error) throw forecastsResult.error;
       if (usersResult.error) throw usersResult.error;
 
-      setQuestions(questionsResult.data || []);
+      const sortedQuestions = (questionsResult.data || []).sort((a, b) => {
+        if (!a.close_date && !b.close_date) return 0;
+        if (!a.close_date) return 1;
+        if (!b.close_date) return -1;
+        return new Date(a.close_date) - new Date(b.close_date);
+      });
+      setQuestions(sortedQuestions);
       setForecasts(forecastsResult.data || []);
       setUsers(usersResult.data || []);
     } catch (error) {
@@ -126,6 +135,12 @@ const ForecastingApp = () => {
         isResolved: false
       }
     ];
+    sampleQuestions.sort((a, b) => {
+      if (!a.close_date && !b.close_date) return 0;
+      if (!a.close_date) return 1;
+      if (!b.close_date) return -1;
+      return new Date(a.close_date) - new Date(b.close_date);
+    });
     setQuestions(sampleQuestions);
   }, []);
 
@@ -1043,9 +1058,14 @@ const QuestionsView = ({ questions, forecasts, currentUser, onSubmitForecast }) 
   const [selectedQuestion, setSelectedQuestion] = useState(null);
   const [filter, setFilter] = useState('active');
 
-  const filteredQuestions = questions.filter(q => 
-    filter === 'active' ? !q.isResolved : q.isResolved
-  );
+  const filteredQuestions = questions
+    .filter(q => (filter === 'active' ? !q.isResolved : q.isResolved))
+    .sort((a, b) => {
+      if (!a.close_date && !b.close_date) return 0;
+      if (!a.close_date) return 1;
+      if (!b.close_date) return -1;
+      return new Date(a.close_date) - new Date(b.close_date);
+    });
 
   return (
     <div className="space-y-6">
@@ -1118,19 +1138,9 @@ const QuestionCard = ({ question, forecasts, currentUser, onSelect, isSelected }
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h3 className="font-medium text-slate-900 mb-2">{question.title}</h3>
-          <p className="text-sm text-slate-600 mb-3">{question.description}</p>
-          <div className="flex items-center space-x-4 text-xs text-slate-500">
-            <div className="flex items-center">
-              <Calendar className="h-4 w-4 mr-1" />
-              {question.createdDate}
-            </div>
-            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-              question.type === 'binary' ? 'bg-blue-100 text-blue-800' :
-              question.type === 'three-category' ? 'bg-green-100 text-green-800' :
-              'bg-purple-100 text-purple-800'
-            }`}>
-              {question.type.replace('-', ' ')}
-            </span>
+          <div className="flex items-center text-xs text-slate-500">
+            <Calendar className="h-4 w-4 mr-1" />
+            {question.close_date || 'No close date'}
           </div>
         </div>
         <div className="ml-4">
@@ -1158,6 +1168,10 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
   const existingForecast = forecasts.find(
     f => f.question_id === question.id && f.user_id === currentUser.id
   );
+
+  const userForecasts = forecasts
+    .filter(f => f.question_id === question.id && f.user_id === currentUser.id)
+    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   
   const [forecast, setForecast] = useState(() => {
     if (existingForecast) {
@@ -1188,6 +1202,9 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
     return (
       <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
         <h3 className="text-lg font-medium text-slate-900 mb-4">Question Resolved</h3>
+        {question.description && (
+          <p className="text-sm text-slate-600 mb-2">{question.description}</p>
+        )}
         {question.data_resource_name && (
           <p className="text-sm text-slate-600 mb-4">
             Data resource:{' '}
@@ -1221,15 +1238,29 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
             )}
           </div>
         )}
+
+        {userForecasts.length > 0 && (
+          <div className="mt-6">
+            <h4 className="text-sm font-medium text-slate-900 mb-2">Submission History</h4>
+            <div className="space-y-1 text-sm">
+              {userForecasts.map((f) => (
+                <div key={f.id} className="flex justify-between">
+                  <span>{new Date(f.timestamp).toLocaleString()}</span>
+                  <span className="font-mono">{JSON.stringify(f.forecast)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
-      <h3 className="text-lg font-medium text-slate-900 mb-4">
-        {existingForecast ? 'Update Forecast' : 'Make Forecast'}
-      </h3>
+      {question.description && (
+        <p className="text-sm text-slate-600 mb-2">{question.description}</p>
+      )}
       {question.data_resource_name && (
         <p className="text-sm text-slate-600 mb-4">
           Data resource:{' '}
@@ -1243,6 +1274,9 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
           </a>
         </p>
       )}
+      <h3 className="text-lg font-medium text-slate-900 mb-4">
+        {existingForecast ? 'Update Forecast' : 'Make Forecast'}
+      </h3>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {question.type === 'binary' && (
@@ -1329,6 +1363,22 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
           <p className="text-sm text-blue-600">
             Last updated: {new Date(existingForecast.timestamp).toLocaleString()}
           </p>
+        </div>
+      )}
+
+      {userForecasts.length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-sm font-medium text-slate-900 mb-2">Submission History</h4>
+          <div className="space-y-1 text-sm">
+            {userForecasts.map((f) => (
+              <div key={f.id} className="flex justify-between">
+                <span>{new Date(f.timestamp).toLocaleString()}</span>
+                <span className="font-mono">
+                  {JSON.stringify(f.forecast)}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
