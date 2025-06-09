@@ -1171,7 +1171,7 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
 
   const userForecasts = forecasts
     .filter(f => f.question_id === question.id && f.user_id === currentUser.id)
-    .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
   
   const [forecast, setForecast] = useState(() => {
     if (existingForecast) {
@@ -1245,7 +1245,7 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
             <div className="space-y-1 text-sm">
               {userForecasts.map((f) => (
                 <div key={f.id} className="flex justify-between">
-                  <span>{new Date(f.timestamp).toLocaleString()}</span>
+                  <span>{new Date(f.updated_at).toLocaleString()}</span>
                   <span className="font-mono">{JSON.stringify(f.forecast)}</span>
                 </div>
               ))}
@@ -1361,7 +1361,7 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
       {existingForecast && (
         <div className="mt-4 p-3 bg-blue-50 rounded-lg">
           <p className="text-sm text-blue-600">
-            Last updated: {new Date(existingForecast.timestamp).toLocaleString()}
+            Last updated: {new Date(existingForecast.updated_at).toLocaleString()}
           </p>
         </div>
       )}
@@ -1372,7 +1372,7 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
           <div className="space-y-1 text-sm">
             {userForecasts.map((f) => (
               <div key={f.id} className="flex justify-between">
-                <span>{new Date(f.timestamp).toLocaleString()}</span>
+                <span>{new Date(f.updated_at).toLocaleString()}</span>
                 <span className="font-mono">
                   {JSON.stringify(f.forecast)}
                 </span>
