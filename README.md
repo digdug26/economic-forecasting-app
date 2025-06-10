@@ -15,6 +15,13 @@ environment variables are configured:
 These values must be provided before running `npm run build` or starting a
 deployment.
 
+## Supabase Edge Function
+
+The application expects an Edge Function named `invite-user` to be deployed to
+your Supabase project. This function should call the database RPC
+`create_user_invitation` and return its JSON response. A reference
+implementation is provided under `supabase/functions/invite-user`.
+
 ## Available Scripts
 
 In the project directory, you can run:
