@@ -22,6 +22,11 @@ your Supabase project. This function should call the database RPC
 `create_user_invitation` and return its JSON response. A reference
 implementation is provided under `supabase/functions/invite-user`.
 
+The underlying database function is defined in
+`supabase/migrations/000_create_user_invitation.sql`. Run
+`npm run db:init` to execute this migration on a new Supabase project
+before invoking the edge function.
+
 ## Available Scripts
 
 In the project directory, you can run:
