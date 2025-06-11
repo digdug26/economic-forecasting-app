@@ -1,6 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
+
 import { supabase, getCurrentUser, isAdmin } from './supabase';
+
+// Utility to compute Brier scores across question types
+const calculateBrierScore = (forecast, resolution, questionType) => {
+  if (questionType === 'binary') {
+    const p = forecast.probability / 100;
+    const outcome = resolution ? 1 : 0;
+    return Math.pow(p - outcome, 2) + Math.pow((1 - p) - (1 - outcome), 2);
+  } else if (questionType === 'three-category') {
+    const probs = [
+      forecast.increase / 100,
+      forecast.unchanged / 100,
+      forecast.decrease / 100,
+    ];
+    const outcomes = [0, 0, 0];
+    if (resolution === 'increase') outcomes[0] = 1;
+    else if (resolution === 'unchanged') outcomes[1] = 1;
+    else if (resolution === 'decrease') outcomes[2] = 1;
+    return probs.reduce(
+      (sum, prob, i) => sum + Math.pow(prob - outcomes[i], 2),
+      0
+    );
+  }
+  return 0;
+};
 
 const ForecastingApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -507,13 +532,33 @@ const ForecastingApp = () => {
   const resolveQuestion = async (questionId, resolution) => {
     try {
       setError('');
-      
+
       // Check if current user is admin before allowing question resolution
       if (currentUser.role !== 'admin') {
         setError('Only admins can resolve questions');
         return false;
       }
-      
+
+      // Handle demo users by updating local state directly
+      if (currentUser?.id?.startsWith('demo-')) {
+        const today = new Date().toISOString().split('T')[0];
+        setQuestions(prev =>
+          prev.map(q =>
+            q.id === questionId
+              ? {
+                  ...q,
+                  is_resolved: true,
+                  isResolved: true,
+                  resolution,
+                  resolved_date: today,
+                  resolvedDate: today,
+                }
+              : q
+          )
+        );
+        return true;
+      }
+
       const { data, error } = await supabase
         .from('questions')
         .update({
@@ -562,27 +607,6 @@ const ForecastingApp = () => {
     }
   };
 
- // Calculation functions (mostly unchanged)
- const calculateBrierScore = (forecast, resolution, questionType) => {
-    if (questionType === 'binary') {
-      const p = forecast.probability / 100;
-      const outcome = resolution ? 1 : 0;
-      return Math.pow(p - outcome, 2) + Math.pow((1-p) - (1-outcome), 2);
-    } else if (questionType === 'three-category') {
-      const probs = [
-        forecast.increase / 100,
-        forecast.unchanged / 100,
-        forecast.decrease / 100
-      ];
-      const outcomes = [0, 0, 0];
-      if (resolution === 'increase') outcomes[0] = 1;
-      else if (resolution === 'unchanged') outcomes[1] = 1;
-      else if (resolution === 'decrease') outcomes[2] = 1;
-      
-      return probs.reduce((sum, prob, i) => sum + Math.pow(prob - outcomes[i], 2), 0);
-    }
-    return 0;
-  };
 
   const getUserStats = (userId) => {
     const userForecasts = forecasts.filter(f => f.user_id === userId);
@@ -766,12 +790,13 @@ const ForecastingApp = () => {
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
         {activeView === 'dashboard' && (
-          <DashboardView 
+          <DashboardView
             currentUser={currentUser}
             questions={questions}
             forecasts={forecasts}
             getUserStats={getUserStats}
             newsFeed={newsFeed}
+            users={users}
           />
         )}
         {activeView === 'questions' && (
@@ -1073,10 +1098,14 @@ const LoginScreen = ({ onLogin, onSignup, onResetPassword, error }) => {
   );
 };
 
-const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFeed }) => {
+const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFeed, users }) => {
   const stats = getUserStats(currentUser.id);
-  const activeQuestions = questions.filter(q => !q.isResolved);
   const userForecasts = forecasts.filter(f => f.user_id === currentUser.id);
+  const recentQuestions = [...questions].sort((a, b) => {
+    const da = a.createdDate || a.created_at || a.close_date || '';
+    const db = b.createdDate || b.created_at || b.close_date || '';
+    return new Date(db) - new Date(da);
+  });
 
   return (
     <div className="space-y-6">
@@ -1113,7 +1142,7 @@ const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFe
             <Trophy className="h-8 w-8 text-yellow-600" />
             <div className="ml-4">
               <p className="text-sm font-medium text-slate-600">Active Questions</p>
-              <p className="text-2xl font-bold text-slate-900">{activeQuestions.length}</p>
+              <p className="text-2xl font-bold text-slate-900">{questions.filter(q => !q.isResolved).length}</p>
             </div>
           </div>
         </div>
@@ -1127,8 +1156,41 @@ const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFe
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {activeQuestions.slice(0, 5).map(question => {
+                {recentQuestions.slice(0, 5).map(question => {
                   const userForecast = userForecasts.find(f => f.question_id === question.id);
+                  const qForecasts = forecasts.filter(f => f.question_id === question.id);
+                  let stats = null;
+                  if (question.isResolved) {
+                    const correct = qForecasts.filter(f => {
+                      if (question.type === 'binary') {
+                        const pred = f.forecast.probability > 50;
+                        return pred === question.resolution;
+                      }
+                      if (question.type === 'three-category') {
+                        const data = f.forecast;
+                        const pred = Object.keys(data).reduce((a,b)=> (data[a] > data[b] ? a : b));
+                        return pred === question.resolution;
+                      }
+                      if (question.type === 'multiple-choice') {
+                        const data = f.forecast;
+                        const pred = Object.keys(data).reduce((a,b)=> (data[a] > data[b] ? a : b));
+                        return pred === question.resolution;
+                      }
+                      return false;
+                    });
+                    const scores = qForecasts.map(f => ({
+                      user: f.user_id,
+                      score: calculateBrierScore(f.forecast, question.resolution, question.type)
+                    }));
+                    const top = scores.sort((a,b)=>a.score-b.score)[0];
+                    const topUser = top ? users.find(u => u.id === top.user) : null;
+                    stats = {
+                      total: qForecasts.length,
+                      correct: correct.length,
+                      incorrect: qForecasts.length - correct.length,
+                      topUser: topUser ? topUser.name || topUser.email : 'N/A'
+                    };
+                  }
                   return (
                     <div key={question.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
                       <div className="flex-1">
@@ -1136,11 +1198,20 @@ const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFe
                         <p className="text-sm text-slate-600 mt-1">{question.description}</p>
                         <div className="flex items-center mt-2 text-xs text-slate-500">
                           <Calendar className="h-4 w-4 mr-1" />
-                          Created {question.createdDate}
+                          Created {question.createdDate || question.created_at}
                         </div>
+                        {question.isResolved && stats && (
+                          <p className="text-xs text-slate-500 mt-1">
+                            {stats.total} forecasts, {stats.correct} correct, {stats.incorrect} incorrect. Top forecaster: {stats.topUser}
+                          </p>
+                        )}
                       </div>
                       <div className="ml-4">
-                        {userForecast ? (
+                        {question.isResolved ? (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                            Closed
+                          </span>
+                        ) : userForecast ? (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Forecast Submitted
                           </span>
@@ -1276,7 +1347,7 @@ const QuestionCard = ({ question, forecasts, currentUser, onSelect, isSelected }
           {question.isResolved ? (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
               <Lock className="h-3 w-3 mr-1" />
-              Resolved
+              Closed
             </span>
           ) : userForecast ? (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -1416,6 +1487,22 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
                 );
               })()
             )}
+            <p className="text-sm mt-2">
+              {(() => {
+                const outcome = String(question.resolution);
+                let predicted = '';
+                if (question.type === 'binary') {
+                  predicted = existingForecast.forecast.probability > 50 ? 'true' : 'false';
+                } else if (question.type === 'three-category') {
+                  const data = normalizeForecast(existingForecast.forecast);
+                  predicted = Object.keys(data).reduce((a, b) => (data[a] > data[b] ? a : b));
+                } else if (question.type === 'multiple-choice') {
+                  const data = existingForecast.forecast;
+                  predicted = Object.keys(data).reduce((a, b) => (data[a] > data[b] ? a : b));
+                }
+                return predicted === outcome ? 'You were correct!' : 'You were incorrect.';
+              })()}
+            </p>
           </div>
         )}
 
