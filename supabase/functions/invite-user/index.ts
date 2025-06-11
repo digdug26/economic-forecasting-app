@@ -15,6 +15,7 @@ serve(async (req) => {
     const { email, role, name } = await req.json();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const redirectTo = Deno.env.get("INVITE_REDIRECT_URL") ?? undefined;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { data, error } = await supabase.rpc('create_user_invitation', {
@@ -25,6 +26,21 @@ serve(async (req) => {
 
     if (error) {
       return new Response(JSON.stringify({ error: error.message }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+      });
+    }
+
+    const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(
+      email,
+      {
+        redirectTo,
+        data: { name, role }
+      }
+    );
+
+    if (inviteError) {
+      return new Response(JSON.stringify({ error: inviteError.message }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
