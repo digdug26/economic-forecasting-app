@@ -1,6 +1,31 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
+
 import { supabase, getCurrentUser, isAdmin } from './supabase';
+
+// Utility to compute Brier scores across question types
+const calculateBrierScore = (forecast, resolution, questionType) => {
+  if (questionType === 'binary') {
+    const p = forecast.probability / 100;
+    const outcome = resolution ? 1 : 0;
+    return Math.pow(p - outcome, 2) + Math.pow((1 - p) - (1 - outcome), 2);
+  } else if (questionType === 'three-category') {
+    const probs = [
+      forecast.increase / 100,
+      forecast.unchanged / 100,
+      forecast.decrease / 100,
+    ];
+    const outcomes = [0, 0, 0];
+    if (resolution === 'increase') outcomes[0] = 1;
+    else if (resolution === 'unchanged') outcomes[1] = 1;
+    else if (resolution === 'decrease') outcomes[2] = 1;
+    return probs.reduce(
+      (sum, prob, i) => sum + Math.pow(prob - outcomes[i], 2),
+      0
+    );
+  }
+  return 0;
+};
 
 const ForecastingApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -582,27 +607,6 @@ const ForecastingApp = () => {
     }
   };
 
- // Calculation functions (mostly unchanged)
- const calculateBrierScore = (forecast, resolution, questionType) => {
-    if (questionType === 'binary') {
-      const p = forecast.probability / 100;
-      const outcome = resolution ? 1 : 0;
-      return Math.pow(p - outcome, 2) + Math.pow((1-p) - (1-outcome), 2);
-    } else if (questionType === 'three-category') {
-      const probs = [
-        forecast.increase / 100,
-        forecast.unchanged / 100,
-        forecast.decrease / 100
-      ];
-      const outcomes = [0, 0, 0];
-      if (resolution === 'increase') outcomes[0] = 1;
-      else if (resolution === 'unchanged') outcomes[1] = 1;
-      else if (resolution === 'decrease') outcomes[2] = 1;
-      
-      return probs.reduce((sum, prob, i) => sum + Math.pow(prob - outcomes[i], 2), 0);
-    }
-    return 0;
-  };
 
   const getUserStats = (userId) => {
     const userForecasts = forecasts.filter(f => f.user_id === userId);
