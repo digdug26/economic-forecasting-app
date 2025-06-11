@@ -23,6 +23,14 @@ const calculateBrierScore = (forecast, resolution, questionType) => {
       (sum, prob, i) => sum + Math.pow(prob - outcomes[i], 2),
       0
     );
+  } else if (questionType === 'multiple-choice') {
+    const options = Object.keys(forecast);
+    const probs = options.map(opt => (forecast[opt] || 0) / 100);
+    const outcomes = options.map(opt => (resolution === opt ? 1 : 0));
+    return probs.reduce(
+      (sum, prob, i) => sum + Math.pow(prob - outcomes[i], 2),
+      0
+    );
   }
   return 0;
 };
@@ -632,6 +640,10 @@ const ForecastingApp = () => {
           const predicted = forecast.forecast.probability > 50;
           const actual = question.resolution;
           if (predicted === actual) correctPredictions++;
+        } else if (question.type === 'three-category' || question.type === 'multiple-choice') {
+          const data = forecast.forecast;
+          const predicted = Object.keys(data).reduce((a, b) => (data[a] > data[b] ? a : b));
+          if (predicted === question.resolution) correctPredictions++;
         }
       }
     });
