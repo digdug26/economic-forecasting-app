@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
-import { supabase, supabaseAdmin, getCurrentUser, isAdmin } from './supabase';
+import { supabase, getCurrentUser, isAdmin } from './supabase';
 
 const ForecastingApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
@@ -314,12 +314,9 @@ const ForecastingApp = () => {
         return true;
       }
 
-      if (supabaseAdmin) {
-        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(uid);
-        if (authError) throw authError;
-      }
-
-      const { error } = await supabase.from('users').delete().eq('id', uid);
+      const { error } = await supabase.functions.invoke('delete-user', {
+        body: { uid }
+      });
       if (error) throw error;
 
       await loadAppData();
