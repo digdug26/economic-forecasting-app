@@ -74,20 +74,45 @@ const ForecastingApp = () => {
           .select('*')
           .order('close_date', { ascending: true, nullsFirst: false }),
         supabase.from('forecasts').select('*'),
-        supabase.from('users').select('*')
+        supabase.from('users').select('*'),
       ]);
 
       if (questionsResult.error) throw questionsResult.error;
       if (forecastsResult.error) throw forecastsResult.error;
       if (usersResult.error) throw usersResult.error;
 
-      const sortedQuestions = (questionsResult.data || []).sort((a, b) => {
+      const today = new Date().toISOString().split('T')[0];
+      const processed = [];
+      for (const q of questionsResult.data || []) {
+        let isResolved = q.is_resolved;
+        let resolvedDate = q.resolved_date;
+
+        if (!isResolved && q.close_date && new Date(q.close_date) <= new Date(today)) {
+          isResolved = true;
+          resolvedDate = q.close_date;
+          if (!currentUser?.id?.startsWith('demo-')) {
+            await supabase
+              .from('questions')
+              .update({ is_resolved: true, resolved_date: resolvedDate })
+              .eq('id', q.id);
+          }
+        }
+
+        processed.push({
+          ...q,
+          isResolved,
+          resolvedDate,
+        });
+      }
+
+      processed.sort((a, b) => {
         if (!a.close_date && !b.close_date) return 0;
         if (!a.close_date) return 1;
         if (!b.close_date) return -1;
         return new Date(a.close_date) - new Date(b.close_date);
       });
-      setQuestions(sortedQuestions);
+
+      setQuestions(processed);
       setForecasts(forecastsResult.data || []);
       setUsers(usersResult.data || []);
     } catch (error) {
@@ -2037,7 +2062,7 @@ const AdminView = ({
                 <div className="bg-slate-50 p-4 rounded-lg">
                   <p className="text-sm text-slate-600">Active Questions</p>
                   <p className="text-2xl font-bold text-slate-900">
-                    {questions.filter(q => !q.is_resolved).length}
+                    {questions.filter(q => !q.isResolved).length}
                   </p>
                 </div>
                 <div className="bg-slate-50 p-4 rounded-lg">
