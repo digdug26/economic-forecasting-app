@@ -224,27 +224,32 @@ const ForecastingApp = () => {
   };
 
   const resetPassword = async (email) => {
-    try {
-      setError('');
-      
-      const siteUrl =
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        process.env.REACT_APP_SITE_URL ||
-        window.location.origin;
+  try {
+    setError('');
 
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${siteUrl}/reset-password`
-      });
-  
-      if (error) throw error;
-      
-      return true;
-    } catch (error) {
-      console.error('Reset password error:', error);
-      setError(error.message);
-      return false;
-    }
-  };
+    // ① Prefer an explicit reset domain in local dev:
+    const rawDomain = process.env.REACT_APP_RESET_DOMAIN
+      // ② Then your prod env-vars:
+      || process.env.NEXT_PUBLIC_SITE_URL
+      || process.env.REACT_APP_SITE_URL
+      // ③ Finally, default to the current origin:
+      || window.location.origin;
+
+    // Strip any trailing slash so we never end up with “//reset-password”
+    const siteUrl = rawDomain.replace(/\/$/, '');
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/reset-password`
+    });
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    console.error('Reset password error:', error);
+    setError(error.message);
+    return false;
+  }
+};
 
   const createUser = async (userData) => {
     console.log('createUser called with:', userData);
