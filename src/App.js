@@ -35,6 +35,43 @@ const calculateBrierScore = (forecast, resolution, questionType) => {
   return 0;
 };
 
+// Compute a time-weighted Brier score for a single question
+// forecastHistory should contain all of a user's forecasts for the question
+// sorted by creation time ascending
+const calculateTimeWeightedBrier = (forecastHistory, question) => {
+  if (!question.isResolved || forecastHistory.length === 0) return 0;
+
+  const resolutionDate = new Date(
+    question.resolvedDate || question.resolved_date || question.close_date
+  );
+
+  let total = 0;
+  let totalDays = 0;
+
+  for (let i = 0; i < forecastHistory.length; i++) {
+    const current = forecastHistory[i];
+    const start = new Date(current.created_at || current.updated_at);
+    const end = i < forecastHistory.length - 1
+      ? new Date(forecastHistory[i + 1].created_at || forecastHistory[i + 1].updated_at)
+      : resolutionDate;
+
+    // Number of days the forecast was active (inclusive)
+    let daysActive = Math.floor((end - start) / (1000 * 60 * 60 * 24)) + 1;
+    if (daysActive < 1) daysActive = 1;
+
+    const brier = calculateBrierScore(
+      current.forecast,
+      question.resolution,
+      question.type
+    );
+
+    total += brier * daysActive;
+    totalDays += daysActive;
+  }
+
+  return totalDays > 0 ? total / totalDays : 0;
+};
+
 const ForecastingApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
   const [activeView, setActiveView] = useState('login');
@@ -619,29 +656,37 @@ const ForecastingApp = () => {
   const getUserStats = (userId) => {
     const userForecasts = forecasts.filter(f => f.user_id === userId);
     const resolvedQuestions = questions.filter(q => q.isResolved);
-    const userResolvedForecasts = userForecasts.filter(f =>
-      resolvedQuestions.some(q => q.id === f.question_id)
+
+    const answeredQuestions = resolvedQuestions.filter(q =>
+      userForecasts.some(f => f.question_id === q.id)
     );
 
-    if (userResolvedForecasts.length === 0) {
+    if (answeredQuestions.length === 0) {
       return { brierScore: 0, questionsAnswered: userForecasts.length, accuracy: 0 };
     }
 
     let totalBrierScore = 0;
     let correctPredictions = 0;
 
-    userResolvedForecasts.forEach(forecast => {
-      const question = resolvedQuestions.find(q => q.id === forecast.question_id);
-      if (question) {
-        const brierScore = calculateBrierScore(forecast.forecast, question.resolution, question.type);
-        totalBrierScore += brierScore;
-        
+    answeredQuestions.forEach(question => {
+      const history = userForecasts
+        .filter(f => f.question_id === question.id)
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+      const brierScore = calculateTimeWeightedBrier(history, question);
+      totalBrierScore += brierScore;
+
+      const lastForecast = history[history.length - 1];
+      if (lastForecast) {
         if (question.type === 'binary') {
-          const predicted = forecast.forecast.probability > 50;
+          const predicted = lastForecast.forecast.probability > 50;
           const actual = question.resolution;
           if (predicted === actual) correctPredictions++;
-        } else if (question.type === 'three-category' || question.type === 'multiple-choice') {
-          const data = forecast.forecast;
+        } else if (
+          question.type === 'three-category' ||
+          question.type === 'multiple-choice'
+        ) {
+          const data = lastForecast.forecast;
           const predicted = Object.keys(data).reduce((a, b) => (data[a] > data[b] ? a : b));
           if (predicted === question.resolution) correctPredictions++;
         }
@@ -649,9 +694,9 @@ const ForecastingApp = () => {
     });
 
     return {
-      brierScore: (totalBrierScore / userResolvedForecasts.length).toFixed(3),
+      brierScore: (totalBrierScore / answeredQuestions.length).toFixed(3),
       questionsAnswered: userForecasts.length,
-      accuracy: userResolvedForecasts.length > 0 ? ((correctPredictions / userResolvedForecasts.length) * 100).toFixed(1) : 0
+      accuracy: answeredQuestions.length > 0 ? ((correctPredictions / answeredQuestions.length) * 100).toFixed(1) : 0
     };
   };
 
