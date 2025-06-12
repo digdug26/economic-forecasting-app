@@ -2388,11 +2388,17 @@ const QuestionManagementCard = ({ question, forecasts, onResolve, onUpdate, onDe
         </div>
         <div className="ml-4">
           {question.isResolved ? (
-            <div className="text-right">
-            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
-              Resolved
-            </span>
-            <p className="text-xs text-slate-500 mt-1">Result: {String(question.resolution)}</p>
+            <div className="text-right space-y-1">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                Resolved
+              </span>
+              <p className="text-xs text-slate-500">Result: {String(question.resolution)}</p>
+              <button
+                onClick={() => onDelete(question.id)}
+                className="bg-red-600 text-white px-3 py-1 rounded text-sm hover:bg-red-700"
+              >
+                Delete
+              </button>
             </div>
           ) : (
             <div className="flex space-x-2">
