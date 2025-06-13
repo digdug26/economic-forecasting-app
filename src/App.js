@@ -1482,6 +1482,27 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
     return {};
   });
 
+  // Reset forecast state when the question or existing forecast changes
+  useEffect(() => {
+    if (existingForecast) {
+      setForecast(normalizeForecast(existingForecast.forecast));
+    } else if (question.type === 'binary') {
+      setForecast({ probability: 50 });
+    } else if (question.type === 'three-category') {
+      setForecast({ increase: 33, unchanged: 34, decrease: 33 });
+    } else if (question.type === 'multiple-choice') {
+      const evenSplit = Math.floor(100 / question.options.length);
+      const remainder = 100 - evenSplit * question.options.length;
+      const initial = {};
+      question.options.forEach((option, index) => {
+        initial[option] = index === 0 ? evenSplit + remainder : evenSplit;
+      });
+      setForecast(initial);
+    } else {
+      setForecast({});
+    }
+  }, [question.id, existingForecast]);
+
   const total = Object.values(forecast).reduce((sum, val) => sum + (Number(val) || 0), 0);
   const requiresTotal = question.type === 'three-category' || question.type === 'multiple-choice';
   const isValid = !requiresTotal || total === 100;
