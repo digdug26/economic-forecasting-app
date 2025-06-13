@@ -2415,9 +2415,9 @@ const QuestionManagementCard = ({ question, forecasts, onResolve, onUpdate, onDe
   const [resolution, setResolution] = useState('');
   const questionForecasts = forecasts.filter(f => f.question_id === question.id);
 
-  const handleResolve = () => {
+  const handleResolve = async () => {
     if (resolution) {
-      onResolve(question.id, resolution);
+      await onResolve(question.id, resolution);
       setShowResolve(false);
       setResolution('');
     }
