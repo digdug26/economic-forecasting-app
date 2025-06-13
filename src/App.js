@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import useNewsFeed from './hooks/useNewsFeed';
 import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
 
 import { supabase, getCurrentUser, isAdmin } from './supabase';
@@ -245,13 +246,8 @@ const ForecastingApp = () => {
     setQuestions(sampleQuestions);
   }, []);
 
-  // Sample news feed
-  const newsFeed = [
-    { title: "Fed Officials Signal Cautious Approach to Rate Changes", source: "Reuters", url: "#" },
-    { title: "Unemployment Claims Drop to Lowest Level This Year", source: "Bloomberg", url: "#" },
-    { title: "Q1 GDP Growth Exceeds Expectations at 3.2%", source: "Wall Street Journal", url: "#" },
-    { title: "Tech Sector Leads Market Rally Amid AI Optimism", source: "Financial Times", url: "#" }
-  ];
+  // Economic news headlines
+  const newsFeed = useNewsFeed('economy');
 
  // Authentication functions
   const login = async (email, password) => {
