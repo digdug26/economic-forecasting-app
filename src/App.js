@@ -1490,6 +1490,9 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isValid) {
+      return;
+    }
     const success = await onSubmitForecast(question.id, forecast);
     if (success) {
       setShowConfirmation(true);
@@ -1640,8 +1643,8 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
               );
             })}
             <div className="text-sm text-slate-600">
-              Total: {Object.values(forecast).reduce((sum, val) => sum + (val || 0), 0)}%
-              {Object.values(forecast).reduce((sum, val) => sum + (val || 0), 0) !== 100 && (
+              Total: {Object.values(forecast).reduce((sum, val) => sum + (Number(val) || 0), 0)}%
+              {Object.values(forecast).reduce((sum, val) => sum + (Number(val) || 0), 0) !== 100 && (
                 <span className="text-red-600 ml-2">Total must equal 100 %</span>
               )}
             </div>
@@ -1669,8 +1672,8 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
               </div>
             ))}
             <div className="text-sm text-slate-600">
-              Total: {Object.values(forecast).reduce((sum, val) => sum + (val || 0), 0)}%
-              {Object.values(forecast).reduce((sum, val) => sum + (val || 0), 0) !== 100 && (
+              Total: {Object.values(forecast).reduce((sum, val) => sum + (Number(val) || 0), 0)}%
+              {Object.values(forecast).reduce((sum, val) => sum + (Number(val) || 0), 0) !== 100 && (
                 <span className="text-red-600 ml-2">Total must equal 100 %</span>
               )}
             </div>
