@@ -698,7 +698,6 @@ const ForecastingApp = () => {
 
   const getLeaderboard = () => {
     return users
-      .filter(u => u.role === 'forecaster')
       .map(user => ({
         ...user,
         stats: getUserStats(user.id)
