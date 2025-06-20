@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import useNewsFeed from './hooks/useNewsFeed';
-import { Calendar, TrendingUp, Users, Award, Settings, Plus, Eye, EyeOff, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
+import { Calendar, TrendingUp, Award, Plus, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
 
-import { supabase, getCurrentUser, isAdmin } from './supabase';
+import { supabase, getCurrentUser } from './supabase';
 
 // Utility to compute Brier scores across question types
 const calculateBrierScore = (forecast, resolution, questionType) => {
@@ -134,6 +134,7 @@ const ForecastingApp = () => {
     });
 
     return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Load all app data
@@ -278,7 +279,7 @@ const ForecastingApp = () => {
       }
 
       // Try Supabase authentication
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
@@ -368,7 +369,7 @@ const ForecastingApp = () => {
       }
 
       // Call serverless function to send invitation email
-      const { data, error } = await supabase.functions.invoke('invite-user', {
+      const { error } = await supabase.functions.invoke('invite-user', {
         body: { email: userData.email, role: userData.role }
       });
 
@@ -420,28 +421,12 @@ const ForecastingApp = () => {
   
 
 
-  // Add this function to load invitations in your AdminView
-  const loadInvitations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('user_invitations')
-        .select('*')
-        .order('created_at', { ascending: false });
-        
-      if (error) throw error;
-      return data || [];
-    } catch (error) {
-      console.error('Error loading invitations:', error);
-      return [];
-    }
-  };
-  
   // Add signup function (if you don't have it already)
   const signup = async (email, password, name) => {
     try {
       setError('');
       
-      const { data, error } = await supabase.auth.signUp({
+      const { data: signUpData, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -456,8 +441,8 @@ const ForecastingApp = () => {
         setError(error.message);
         return false;
       }
-  
-      if (data.user && !data.session) {
+
+      if (signUpData.user && !signUpData.session) {
         setError('Please check your email for verification link');
         return false;
       }
@@ -481,7 +466,7 @@ const ForecastingApp = () => {
         return false;
       }
       
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('questions')
         .insert([
           {
@@ -542,7 +527,7 @@ const ForecastingApp = () => {
         return true;
       }
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('questions')
         .update({
           title: updates.title,
@@ -598,8 +583,7 @@ const ForecastingApp = () => {
         return true;
       }
 
-      const { data, error } = await supabase
-        .from('questions')
+      const { error } = await supabase.from('questions')
         .update({
           is_resolved: true,
           resolution: resolution,
@@ -1498,7 +1482,7 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
     } else {
       setForecast({});
     }
-  }, [question.id, existingForecast]);
+  }, [question.id, existingForecast, question.options, question.type]);
 
   const total = Object.values(forecast).reduce((sum, val) => sum + (Number(val) || 0), 0);
   const requiresTotal = question.type === 'three-category' || question.type === 'multiple-choice';
