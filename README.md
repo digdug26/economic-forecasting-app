@@ -18,6 +18,11 @@ environment variables are configured:
 These values must be provided before running `npm run build` or starting a
 deployment.
 
+If `REACT_APP_SUPABASE_URL` or `REACT_APP_SUPABASE_ANON_KEY` are missing during
+local development, the app will log a warning and disable the Supabase client.
+However a production build will not be functional without these variables, so
+ensure they are configured in your deployment environment.
+
 ## Supabase Edge Function
 
 The application expects an Edge Function named `invite-user` to be deployed to
