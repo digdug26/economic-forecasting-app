@@ -13,7 +13,7 @@ deploying the project. The following environment variables are supported:
 - Optional: `REACT_APP_SUPABASE_SERVICE_ROLE_KEY`
 - Optional: `INVITE_REDIRECT_URL` - redirect URL for invitation links
 - Optional: `REACT_APP_NEWS_API_KEY` - NewsAPI key for the Economic News widget
-- Optional: `REACT_APP_GUARDIAN_API_KEY` - Guardian Open Platform key used when NewsAPI quota is exhausted
+- Optional: `REACT_APP_GUARDIAN_API_KEY` - Guardian Open Platform key for additional news from The Guardian (request skipped if unset)
 
 These values must be provided before running `npm run build` or starting a
 deployment.
