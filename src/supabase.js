@@ -4,19 +4,26 @@ const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
 const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables')
+  console.warn(
+    'Supabase environment variables are missing. The client will be disabled.'
+  )
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase =
+  supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
 
 // Optional admin client for server-side operations
 const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
-export const supabaseAdmin = serviceRoleKey
-  ? createClient(supabaseUrl, serviceRoleKey)
-  : null
+export const supabaseAdmin =
+  supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null
 
 // Helper function to check if user is admin
 export const isAdmin = async () => {
+  if (!supabase) {
+    console.warn('Supabase client not initialized')
+    return false
+  }
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return false
   
@@ -31,6 +38,11 @@ export const isAdmin = async () => {
 
 // Helper function to get current user profile
 export const getCurrentUser = async () => {
+  if (!supabase) {
+    console.warn('Supabase client not initialized')
+    return null
+  }
+
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   
