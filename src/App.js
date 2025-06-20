@@ -343,8 +343,6 @@ const ForecastingApp = () => {
 };
 
   const createUser = async (userData) => {
-    console.log('createUser called with:', userData);
-    console.log('Current user role:', currentUser.role);
 
     try {
       setError('');
