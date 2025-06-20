@@ -66,22 +66,26 @@ export default function useNewsFeed(
         }
       }
 
-      const guardianKey = process.env.REACT_APP_GUARDIAN_API_KEY || 'test';
-      try {
-        const url = `https://content.guardianapis.com/search?q=${searchQuery}&from-date=${fromDate}&order-by=newest&api-key=${guardianKey}`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const json = await res.json();
-          const guardianItems = json.response.results.map(r => ({
-            title: r.webTitle,
-            url: r.webUrl,
-            source: 'The Guardian',
-            publishedAt: r.webPublicationDate
-          }));
-          items = items.concat(guardianItems);
+      const guardianKey = process.env.REACT_APP_GUARDIAN_API_KEY;
+      if (guardianKey) {
+        try {
+          const url = `https://content.guardianapis.com/search?q=${searchQuery}&from-date=${fromDate}&order-by=newest&api-key=${guardianKey}`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const json = await res.json();
+            const guardianItems = json.response.results.map(r => ({
+              title: r.webTitle,
+              url: r.webUrl,
+              source: 'The Guardian',
+              publishedAt: r.webPublicationDate
+            }));
+            items = items.concat(guardianItems);
+          }
+        } catch (err) {
+          console.error('Guardian API error', err);
         }
-      } catch (err) {
-        console.error('Guardian API error', err);
+      } else {
+        console.warn('Guardian API key missing, skipping Guardian news fetch');
       }
 
       items.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
