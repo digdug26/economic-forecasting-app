@@ -1,19 +1,30 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
-const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY
+const supabaseUrl = process.env.REACT_APP_SUPABASE_URL;
+const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseKey) {
-  throw new Error('Missing Supabase environment variables')
+  throw new Error('Missing Supabase environment variables');
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+// Reuse the client across HMR reloads to avoid creating multiple
+// GoTrueClient instances which can cause unexpected behavior.
+const existingClient = globalThis.__supabaseClient;
+export const supabase =
+  existingClient || createClient(supabaseUrl, supabaseKey);
+if (!existingClient) {
+  globalThis.__supabaseClient = supabase;
+}
 
 // Optional admin client for server-side operations
-const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
+const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY;
+const existingAdmin = globalThis.__supabaseAdmin;
 export const supabaseAdmin = serviceRoleKey
-  ? createClient(supabaseUrl, serviceRoleKey)
-  : null
+  ? existingAdmin || createClient(supabaseUrl, serviceRoleKey)
+  : null;
+if (!existingAdmin && supabaseAdmin) {
+  globalThis.__supabaseAdmin = supabaseAdmin;
+}
 
 // Helper function to check if user is admin
 export const isAdmin = async () => {
