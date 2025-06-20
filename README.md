@@ -4,8 +4,8 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 
 ## Environment Setup
 
-Before building the project or deploying it to Vercel, make sure the following
-environment variables are configured:
+Copy `.env.example` to `.env` and fill in the values before building or
+deploying the project. The following environment variables are supported:
 
 - `NEXT_PUBLIC_SITE_URL` (or `REACT_APP_SITE_URL`)
 - `REACT_APP_SUPABASE_URL`
