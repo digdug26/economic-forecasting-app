@@ -23,6 +23,11 @@ local development, the app will log a warning and disable the Supabase client.
 However a production build will not be functional without these variables, so
 ensure they are configured in your deployment environment.
 
+If you deploy multiple Supabase apps to the same domain, set a unique storage
+key for the auth client. The default in this project is `forecasting-app.auth`.
+This prevents one app from overwriting another's session and helps avoid errors
+such as "Invalid Refresh Token" after a browser refresh.
+
 ## Supabase Edge Function
 
 The application expects an Edge Function named `invite-user` to be deployed to

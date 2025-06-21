@@ -107,6 +107,18 @@ const ForecastingApp = () => {
         }
       } catch (error) {
         console.error('Error initializing app:', error);
+        if (
+          error?.message &&
+          error.message.toLowerCase().includes('invalid refresh token')
+        ) {
+          // Clear any invalid session so the user can log in again
+          try {
+            await supabase.auth.signOut();
+          } catch (signOutError) {
+            console.error('Error signing out after refresh failure:', signOutError);
+          }
+          localStorage.removeItem('forecasting-app.auth');
+        }
         setError('Failed to initialize app');
       } finally {
         setLoading(false);
