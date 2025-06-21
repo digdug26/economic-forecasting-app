@@ -22,7 +22,17 @@ export const supabase =
 // Optional admin client for server-side operations
 const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
 export const supabaseAdmin =
-  supabaseUrl && serviceRoleKey ? createClient(supabaseUrl, serviceRoleKey) : null
+  supabaseUrl && serviceRoleKey
+    ? createClient(supabaseUrl, serviceRoleKey, {
+        auth: {
+          // Use a separate storage key and disable session persistence to avoid
+          // conflicts with the main client in the browser
+          storageKey: 'forecasting-app.admin-auth',
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      })
+    : null
 
 // Helper function to check if user is admin
 export const isAdmin = async () => {
