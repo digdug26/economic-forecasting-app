@@ -10,7 +10,14 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase =
-  supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null
+  supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey, {
+        auth: {
+          // Avoid conflicts when multiple Supabase apps share the same browser context
+          storageKey: 'forecasting-app.auth'
+        }
+      })
+    : null
 
 // Optional admin client for server-side operations
 const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
