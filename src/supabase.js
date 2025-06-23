@@ -9,30 +9,44 @@ if (!supabaseUrl || !supabaseKey) {
   )
 }
 
-export const supabase =
-  supabaseUrl && supabaseKey
-    ? createClient(supabaseUrl, supabaseKey, {
-        auth: {
-          // Avoid conflicts when multiple Supabase apps share the same browser context
-          storageKey: 'forecasting-app.auth'
-        }
-      })
-    : null
+export const AUTH_STORAGE_PREFIX = 'forecasting-app.auth'
+
+let supabaseInstance = null
+export const getSupabase = () => {
+  if (!supabaseUrl || !supabaseKey) return null
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        // Avoid conflicts when multiple Supabase apps share the same browser context
+        storageKey: AUTH_STORAGE_PREFIX,
+      },
+    })
+  }
+  return supabaseInstance
+}
+
+export const supabase = getSupabase()
 
 // Optional admin client for server-side operations
 const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
-export const supabaseAdmin =
-  supabaseUrl && serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-          // Use a separate storage key and disable session persistence to avoid
-          // conflicts with the main client in the browser
-          storageKey: 'forecasting-app.admin-auth',
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      })
-    : null
+let adminInstance = null
+export const getSupabaseAdmin = () => {
+  if (!supabaseUrl || !serviceRoleKey) return null
+  if (!adminInstance) {
+    adminInstance = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        // Use a separate storage key and disable session persistence to avoid
+        // conflicts with the main client in the browser
+        storageKey: 'forecasting-app.admin-auth',
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  }
+  return adminInstance
+}
+
+export const supabaseAdmin = getSupabaseAdmin()
 
 // Helper function to check if user is admin
 export const isAdmin = async () => {
@@ -70,4 +84,35 @@ export const getCurrentUser = async () => {
     .single()
 
   return userData
+}
+
+// Validate the current auth session and clear any invalid state
+export const validateSession = async () => {
+  if (!supabase) return null
+  try {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession()
+    if (error || !session) {
+      await supabase.auth.signOut()
+      clearAuthStorage()
+      return null
+    }
+    return session
+  } catch (err) {
+    console.error('Session validation failed:', err)
+    clearAuthStorage()
+    return null
+  }
+}
+
+// Remove any Supabase auth items from localStorage
+export const clearAuthStorage = () => {
+  if (typeof localStorage === 'undefined') return
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith(AUTH_STORAGE_PREFIX)) {
+      localStorage.removeItem(key)
+    }
+  })
 }
