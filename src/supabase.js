@@ -9,12 +9,14 @@ if (!supabaseUrl || !supabaseKey) {
   )
 }
 
+export const AUTH_STORAGE_PREFIX = 'forecasting-app.auth'
+
 export const supabase =
   supabaseUrl && supabaseKey
     ? createClient(supabaseUrl, supabaseKey, {
         auth: {
           // Avoid conflicts when multiple Supabase apps share the same browser context
-          storageKey: 'forecasting-app.auth'
+          storageKey: AUTH_STORAGE_PREFIX
         }
       })
     : null
@@ -82,13 +84,23 @@ export const validateSession = async () => {
     } = await supabase.auth.getSession()
     if (error || !session) {
       await supabase.auth.signOut()
-      localStorage.clear()
+      clearAuthStorage()
       return null
     }
     return session
   } catch (err) {
     console.error('Session validation failed:', err)
-    localStorage.clear()
+    clearAuthStorage()
     return null
   }
+}
+
+// Remove any Supabase auth items from localStorage
+export const clearAuthStorage = () => {
+  if (typeof localStorage === 'undefined') return
+  Object.keys(localStorage).forEach((key) => {
+    if (key.startsWith(AUTH_STORAGE_PREFIX)) {
+      localStorage.removeItem(key)
+    }
+  })
 }

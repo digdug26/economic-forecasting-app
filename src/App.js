@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import useNewsFeed from './hooks/useNewsFeed';
 import { Calendar, TrendingUp, Award, Plus, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
 
-import { supabase, getCurrentUser, validateSession } from './supabase';
+import { supabase, getCurrentUser, validateSession, clearAuthStorage } from './supabase';
 
 // Utility to compute Brier scores across question types
 const calculateBrierScore = (forecast, resolution, questionType) => {
@@ -117,7 +117,7 @@ const ForecastingApp = () => {
           } catch (signOutError) {
             console.error('Error signing out after refresh failure:', signOutError);
           }
-          localStorage.removeItem('forecasting-app.auth');
+          clearAuthStorage();
         }
         setError('Failed to initialize app');
       } finally {
@@ -137,6 +137,7 @@ const ForecastingApp = () => {
           await loadAppData();
         }
       } else if (event === 'SIGNED_OUT') {
+        clearAuthStorage();
         setCurrentUser(null);
         setActiveView('login');
         setQuestions([]);
