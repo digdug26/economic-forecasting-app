@@ -11,30 +11,42 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const AUTH_STORAGE_PREFIX = 'forecasting-app.auth'
 
-export const supabase =
-  supabaseUrl && supabaseKey
-    ? createClient(supabaseUrl, supabaseKey, {
-        auth: {
-          // Avoid conflicts when multiple Supabase apps share the same browser context
-          storageKey: AUTH_STORAGE_PREFIX
-        }
-      })
-    : null
+let supabaseInstance = null
+export const getSupabase = () => {
+  if (!supabaseUrl || !supabaseKey) return null
+  if (!supabaseInstance) {
+    supabaseInstance = createClient(supabaseUrl, supabaseKey, {
+      auth: {
+        // Avoid conflicts when multiple Supabase apps share the same browser context
+        storageKey: AUTH_STORAGE_PREFIX,
+      },
+    })
+  }
+  return supabaseInstance
+}
+
+export const supabase = getSupabase()
 
 // Optional admin client for server-side operations
 const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
-export const supabaseAdmin =
-  supabaseUrl && serviceRoleKey
-    ? createClient(supabaseUrl, serviceRoleKey, {
-        auth: {
-          // Use a separate storage key and disable session persistence to avoid
-          // conflicts with the main client in the browser
-          storageKey: 'forecasting-app.admin-auth',
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      })
-    : null
+let adminInstance = null
+export const getSupabaseAdmin = () => {
+  if (!supabaseUrl || !serviceRoleKey) return null
+  if (!adminInstance) {
+    adminInstance = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        // Use a separate storage key and disable session persistence to avoid
+        // conflicts with the main client in the browser
+        storageKey: 'forecasting-app.admin-auth',
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    })
+  }
+  return adminInstance
+}
+
+export const supabaseAdmin = getSupabaseAdmin()
 
 // Helper function to check if user is admin
 export const isAdmin = async () => {
