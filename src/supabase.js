@@ -71,3 +71,24 @@ export const getCurrentUser = async () => {
 
   return userData
 }
+
+// Validate the current auth session and clear any invalid state
+export const validateSession = async () => {
+  if (!supabase) return null
+  try {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession()
+    if (error || !session) {
+      await supabase.auth.signOut()
+      localStorage.clear()
+      return null
+    }
+    return session
+  } catch (err) {
+    console.error('Session validation failed:', err)
+    localStorage.clear()
+    return null
+  }
+}
