@@ -299,6 +299,11 @@ window.diagnostics = {
   serviceWorker: serviceWorkerDetector
 };
 
+// Ensure global access via `diagnostics` in browser consoles
+if (typeof globalThis !== 'undefined') {
+  globalThis.diagnostics = window.diagnostics;
+}
+
 console.log(`
 🏥 Diagnostics Loaded! Available commands:
   • diagnostics.run()      - Run full diagnostic scan
