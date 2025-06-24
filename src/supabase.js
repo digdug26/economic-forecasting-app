@@ -14,7 +14,12 @@ export const AUTH_STORAGE_PREFIX = 'forecasting-app.auth'
 // Ensure we only ever create a single Supabase client, even during
 // React fast refresh/hot module replacement.  We store the instance on
 // the global object so repeated imports don't create new clients.
-const globalScope = typeof window !== 'undefined' ? window : globalThis
+const globalScope =
+  typeof window !== 'undefined'
+    ? window
+    : typeof global !== 'undefined'
+    ? global
+    : {}
 
 const createSupabase = () =>
   createClient(supabaseUrl, supabaseKey, {
