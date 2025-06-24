@@ -1,5 +1,6 @@
 // src/utils/masterDiagnostics.js
 
+/* global globalThis */
 import { getBrowserDetails } from './diagnostics';
 import { consoleLogger } from './consoleLogger';
 import { networkMonitor } from './networkMonitor';
