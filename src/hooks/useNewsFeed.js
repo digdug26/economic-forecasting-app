@@ -82,10 +82,48 @@ export default function useNewsFeed(
             items = items.concat(guardianItems);
           }
         } catch (err) {
-          console.error('Guardian API error', err);
+        console.error('Guardian API error', err);
+      }
+    } else {
+      console.warn('Guardian API key missing, skipping Guardian news fetch');
+    }
+
+      const nytKey = process.env.REACT_APP_NYT_API_KEY;
+      if (nytKey) {
+        try {
+          // NYT Top Stories API - business section
+          const topUrl = `https://api.nytimes.com/svc/topstories/v2/business.json?api-key=${nytKey}`;
+          const topRes = await fetch(topUrl);
+          if (topRes.ok) {
+            const json = await topRes.json();
+            const topItems = json.results
+              .filter(r => keywords.some(k => r.title.toLowerCase().includes(k) || r.abstract.toLowerCase().includes(k)))
+              .map(r => ({
+                title: r.title,
+                url: r.url,
+                source: 'NYTimes',
+                publishedAt: r.published_date
+              }));
+            items = items.concat(topItems);
+          }
+
+          // NYT Article Search API using question keywords
+          const beginDate = fromDate.replace(/-/g, '');
+          const searchUrl = `https://api.nytimes.com/svc/search/v2/articlesearch.json?q=${searchQuery}&begin_date=${beginDate}&sort=newest&api-key=${nytKey}`;
+          const searchRes = await fetch(searchUrl);
+          if (searchRes.ok) {
+            const json = await searchRes.json();
+            const searchItems = json.response.docs.map(doc => ({
+              title: doc.headline.main,
+              url: doc.web_url,
+              source: 'NYTimes',
+              publishedAt: doc.pub_date
+            }));
+            items = items.concat(searchItems);
+          }
+        } catch (err) {
+          console.error('NYTimes API error', err);
         }
-      } else {
-        console.warn('Guardian API key missing, skipping Guardian news fetch');
       }
 
       items.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));

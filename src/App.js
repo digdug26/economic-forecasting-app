@@ -278,7 +278,7 @@ const ForecastingApp = () => {
   }, []);
 
   // Economic news headlines
-  const newsFeed = useNewsFeed('economy');
+  const newsFeed = useNewsFeed('economy', questions);
 
  // Authentication functions
   const login = async (email, password) => {

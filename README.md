@@ -14,6 +14,7 @@ deploying the project. The following environment variables are supported:
 - Optional: `INVITE_REDIRECT_URL` - redirect URL for invitation links
 - Optional: `REACT_APP_NEWS_API_KEY` - NewsAPI key for the Economic News widget
 - Optional: `REACT_APP_GUARDIAN_API_KEY` - Guardian Open Platform key for additional news from The Guardian (request skipped if unset)
+- Optional: `REACT_APP_NYT_API_KEY` - New York Times API key for headlines
 
 These values must be provided before running `npm run build` or starting a
 deployment.
