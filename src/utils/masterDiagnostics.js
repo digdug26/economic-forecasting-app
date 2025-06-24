@@ -1,5 +1,6 @@
 // src/utils/masterDiagnostics.js
 
+/* global globalThis */
 import { getBrowserDetails } from './diagnostics';
 import { consoleLogger } from './consoleLogger';
 import { networkMonitor } from './networkMonitor';
@@ -298,6 +299,11 @@ window.diagnostics = {
   code: codeAnalyzer,
   serviceWorker: serviceWorkerDetector
 };
+
+// Ensure global access via `diagnostics` in browser consoles
+if (typeof globalThis !== 'undefined') {
+  globalThis.diagnostics = window.diagnostics;
+}
 
 console.log(`
 🏥 Diagnostics Loaded! Available commands:
