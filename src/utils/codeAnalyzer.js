@@ -7,8 +7,6 @@ class CodeAnalyzer {
     this.setupDetection();
   }
 
-// Create singleton instance
-export const codeAnalyzer = new CodeAnalyzer();
 
   setupDetection() {
     // Check for Supabase instances in window
@@ -254,3 +252,6 @@ export const codeAnalyzer = new CodeAnalyzer();
     return recommendations;
   }
 }
+
+// Create singleton instance
+export const codeAnalyzer = new CodeAnalyzer();
