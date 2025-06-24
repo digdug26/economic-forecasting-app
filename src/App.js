@@ -76,6 +76,7 @@ const calculateTimeWeightedBrier = (forecastHistory, question) => {
 
 const ForecastingApp = () => {
   const [currentUser, setCurrentUser] = useState(null);
+  const [session, setSession] = useState(null);
   const [activeView, setActiveView] = useState('login');
   const [questions, setQuestions] = useState([]);
   const [forecasts, setForecasts] = useState([]);
@@ -88,6 +89,21 @@ const ForecastingApp = () => {
     setToast(msg);
     setTimeout(() => setToast(''), 3000);
   };
+
+  // Handle session recovery on page load and auth changes
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   // Initialize app - check auth and load data
   useEffect(() => {
