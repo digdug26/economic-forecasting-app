@@ -3,6 +3,7 @@ import useNewsFeed from './hooks/useNewsFeed';
 import { Calendar, TrendingUp, Award, Plus, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
 
 import { supabase, getCurrentUser, validateSession, clearAuthStorage } from './supabase';
+import './utils/masterDiagnostics';
 
 // Utility to compute Brier scores across question types
 const calculateBrierScore = (forecast, resolution, questionType) => {
