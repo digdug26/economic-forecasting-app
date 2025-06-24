@@ -11,42 +11,56 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const AUTH_STORAGE_PREFIX = 'forecasting-app.auth'
 
-let supabaseInstance = null
-export const getSupabase = () => {
-  if (!supabaseUrl || !supabaseKey) return null
-  if (!supabaseInstance) {
-    supabaseInstance = createClient(supabaseUrl, supabaseKey, {
-      auth: {
-        // Avoid conflicts when multiple Supabase apps share the same browser context
-        storageKey: AUTH_STORAGE_PREFIX,
-      },
-    })
-  }
-  return supabaseInstance
-}
+// Ensure we only ever create a single Supabase client, even during
+// React fast refresh/hot module replacement.  We store the instance on
+// the global object so repeated imports don't create new clients.
+const globalScope =
+  typeof window !== 'undefined'
+    ? window
+    : typeof global !== 'undefined'
+    ? global
+    : {}
 
-export const supabase = getSupabase()
+const createSupabase = () =>
+  createClient(supabaseUrl, supabaseKey, {
+    auth: {
+      // Avoid conflicts when multiple Supabase apps share the same browser context
+      storageKey: AUTH_STORAGE_PREFIX,
+      storage: globalScope.localStorage,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  })
+
+export const supabase = (() => {
+  if (!supabaseUrl || !supabaseKey) return null
+  if (!globalScope.__supabase) {
+    globalScope.__supabase = createSupabase()
+  }
+  return globalScope.__supabase
+})()
 
 // Optional admin client for server-side operations
 const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
-let adminInstance = null
-export const getSupabaseAdmin = () => {
-  if (!supabaseUrl || !serviceRoleKey) return null
-  if (!adminInstance) {
-    adminInstance = createClient(supabaseUrl, serviceRoleKey, {
-      auth: {
-        // Use a separate storage key and disable session persistence to avoid
-        // conflicts with the main client in the browser
-        storageKey: 'forecasting-app.admin-auth',
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    })
-  }
-  return adminInstance
-}
 
-export const supabaseAdmin = getSupabaseAdmin()
+const createSupabaseAdmin = () =>
+  createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      // Use a separate storage key and disable session persistence to avoid
+      // conflicts with the main client in the browser
+      storageKey: 'forecasting-app.admin-auth',
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  })
+
+export const supabaseAdmin = (() => {
+  if (!supabaseUrl || !serviceRoleKey) return null
+  if (!globalScope.__supabaseAdmin) {
+    globalScope.__supabaseAdmin = createSupabaseAdmin()
+  }
+  return globalScope.__supabaseAdmin
+})()
 
 // Helper function to check if user is admin
 export const isAdmin = async () => {
