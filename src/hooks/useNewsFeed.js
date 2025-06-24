@@ -37,7 +37,9 @@ export default function useNewsFeed(
         }
       }
 
-      let items = [];
+      let newsApiItems = [];
+      let guardianItems = [];
+      let nytItems = [];
 
       const keywords = Array.isArray(questions) && questions.length
         ? extractKeywords(questions)
@@ -54,7 +56,7 @@ export default function useNewsFeed(
           const res = await fetch(url);
           if (res.ok) {
             const json = await res.json();
-            items = json.articles.map(a => ({
+            newsApiItems = json.articles.map(a => ({
               title: a.title,
               url: a.url,
               source: a.source?.name || 'NewsAPI',
@@ -73,17 +75,16 @@ export default function useNewsFeed(
           const res = await fetch(url);
           if (res.ok) {
             const json = await res.json();
-            const guardianItems = json.response.results.map(r => ({
+            guardianItems = json.response.results.map(r => ({
               title: r.webTitle,
               url: r.webUrl,
               source: 'The Guardian',
               publishedAt: r.webPublicationDate
             }));
-            items = items.concat(guardianItems);
           }
         } catch (err) {
-        console.error('Guardian API error', err);
-      }
+          console.error('Guardian API error', err);
+        }
     } else {
       console.warn('Guardian API key missing, skipping Guardian news fetch');
     }
@@ -104,7 +105,7 @@ export default function useNewsFeed(
                 source: 'NYTimes',
                 publishedAt: r.published_date
               }));
-            items = items.concat(topItems);
+            nytItems = nytItems.concat(topItems);
           }
 
           // NYT Article Search API using question keywords
@@ -119,14 +120,22 @@ export default function useNewsFeed(
               source: 'NYTimes',
               publishedAt: doc.pub_date
             }));
-            items = items.concat(searchItems);
+            nytItems = nytItems.concat(searchItems);
           }
         } catch (err) {
           console.error('NYTimes API error', err);
         }
       }
 
-      items.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+      const sources = [newsApiItems, guardianItems, nytItems];
+      sources.forEach(arr => arr.sort((a, b) => new Date(b.publishedAt) - new Date(a.publishedAt)));
+      const maxLen = Math.max(...sources.map(arr => arr.length));
+      const items = [];
+      for (let i = 0; i < maxLen; i++) {
+        for (const arr of sources) {
+          if (i < arr.length) items.push(arr[i]);
+        }
+      }
 
       setNews(items);
       try {
