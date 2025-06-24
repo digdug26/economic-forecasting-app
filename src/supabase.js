@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 
+// Use a global reference so multiple imports don't create extra clients
+const globalScope = typeof globalThis !== 'undefined' ? globalThis : window
+
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL
 const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY
 
@@ -11,7 +14,8 @@ if (!supabaseUrl || !supabaseKey) {
 
 export const AUTH_STORAGE_PREFIX = 'forecasting-app.auth'
 
-let supabaseInstance = null
+// Reuse an existing client if one has already been created in this context
+let supabaseInstance = globalScope.__supabaseInstance || null
 export const getSupabase = () => {
   if (!supabaseUrl || !supabaseKey) return null
   if (!supabaseInstance) {
@@ -21,6 +25,7 @@ export const getSupabase = () => {
         storageKey: AUTH_STORAGE_PREFIX,
       },
     })
+    globalScope.__supabaseInstance = supabaseInstance
   }
   return supabaseInstance
 }
@@ -29,7 +34,7 @@ export const supabase = getSupabase()
 
 // Optional admin client for server-side operations
 const serviceRoleKey = process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY
-let adminInstance = null
+let adminInstance = globalScope.__supabaseAdmin || null
 export const getSupabaseAdmin = () => {
   if (!supabaseUrl || !serviceRoleKey) return null
   if (!adminInstance) {
@@ -42,6 +47,7 @@ export const getSupabaseAdmin = () => {
         persistSession: false,
       },
     })
+    globalScope.__supabaseAdmin = adminInstance
   }
   return adminInstance
 }
