@@ -722,20 +722,15 @@ const ForecastingApp = () => {
       // Clear any previous error message
       setError('');
   
-      // 1️⃣ Insert or upsert the forecast into the `forecasts` table
-      //    We use upsert so that if the user already has a forecast for this question,
-      //    it overwrites rather than creating a duplicate.
-      const { error } = await supabase
-        .from('forecasts')
-        .upsert(
-          {
-            question_id: questionId,
-            user_id: currentUser.id,
-            forecast: forecastVector,
-            updated_at: new Date().toISOString()
-          },
-          { onConflict: ['user_id', 'question_id'] }
-        );
+      // 1️⃣ Insert the forecast into the `forecasts` table so that each
+      //     submission is stored and we maintain a full history of updates.
+      const { error } = await supabase.from('forecasts').insert({
+        question_id: questionId,
+        user_id: currentUser.id,
+        forecast: forecastVector,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
   
       if (error) {
         throw error;
@@ -1439,13 +1434,11 @@ const QuestionCard = ({ question, forecasts, currentUser, onSelect, isSelected }
 };
 
 const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) => {
-  const existingForecast = forecasts.find(
-    f => f.question_id === question.id && f.user_id === currentUser.id
-  );
-
   const userForecasts = forecasts
     .filter(f => f.question_id === question.id && f.user_id === currentUser.id)
-    .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+
+  const existingForecast = userForecasts[0] || null;
 
   const normalizeForecast = (f) => {
     const copy = { ...f };
