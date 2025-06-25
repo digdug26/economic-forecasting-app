@@ -11,7 +11,9 @@ deploying the project. The following environment variables are supported:
 - `REACT_APP_SUPABASE_URL`
 - `REACT_APP_SUPABASE_ANON_KEY`
 - Optional: `REACT_APP_SUPABASE_SERVICE_ROLE_KEY`
-- Optional: `INVITE_REDIRECT_URL` - redirect URL for invitation links
+- Optional: `INVITE_REDIRECT_URL` - redirect URL for invitation links. If unset,
+  invitations default to `<SITE_URL>/signup` using either `REACT_APP_SITE_URL`
+  or `NEXT_PUBLIC_SITE_URL`.
 - Optional: `REACT_APP_NEWS_API_KEY` - NewsAPI key for the Economic News widget
 - Optional: `REACT_APP_GUARDIAN_API_KEY` - Guardian Open Platform key for additional news from The Guardian (request skipped if unset)
 - Optional: `REACT_APP_NYT_API_KEY` - New York Times API key for headlines
@@ -36,8 +38,10 @@ your Supabase project. This function calls the database RPC
 `create_user_invitation` and then uses Supabase's Admin API to send an invite
 email from `noreply@mail.app.supabase.io`. The email contains a link to set the
 user's password. The link will redirect to the URL specified in the
-`INVITE_REDIRECT_URL` environment variable. A reference implementation is
-provided under `supabase/functions/invite-user`.
+`INVITE_REDIRECT_URL` environment variable. If that variable is not defined, the
+function falls back to `<SITE_URL>/signup` based on `REACT_APP_SITE_URL` or
+`NEXT_PUBLIC_SITE_URL`. A reference implementation is provided under
+`supabase/functions/invite-user`.
 
 The underlying database function is defined in
 `supabase/migrations/000_create_user_invitation.sql`. Run

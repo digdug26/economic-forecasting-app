@@ -15,7 +15,14 @@ serve(async (req) => {
     const { email, role, name } = await req.json();
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const redirectTo = Deno.env.get("INVITE_REDIRECT_URL") ?? undefined;
+    let redirectTo = Deno.env.get("INVITE_REDIRECT_URL") ?? undefined;
+    if (!redirectTo) {
+      const siteUrl =
+        Deno.env.get("REACT_APP_SITE_URL") || Deno.env.get("NEXT_PUBLIC_SITE_URL");
+      if (siteUrl) {
+        redirectTo = siteUrl.replace(/\/+$/, "") + "/signup";
+      }
+    }
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
     const { data, error } = await supabase.rpc('create_user_invitation', {
