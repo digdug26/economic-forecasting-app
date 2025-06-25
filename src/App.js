@@ -1150,11 +1150,6 @@ const LoginScreen = ({ onLogin, onSignup, onResetPassword, error }) => {
             >
               Sign Up
             </button>
-            <div className="mt-4 text-xs text-gray-500">
-              <p><strong>Demo Accounts (for testing):</strong></p>
-              <p>Admin: admin@company.com / admin123</p>
-              <p>Forecaster: forecaster1@company.com / forecast123</p>
-            </div>
           </div>
         </form>
       </div>
