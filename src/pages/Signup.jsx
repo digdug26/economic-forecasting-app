@@ -12,7 +12,10 @@ const Signup = () => {
   const emailParam =
     searchParams.get('email') || hashParams.get('email') || '';
 
-  const [email] = useState(emailParam);
+  // Allow editing the email field only if it wasn't provided in the
+  // invitation link. Otherwise keep it read-only so the invited address
+  // can't be changed.
+  const [email, setEmail] = useState(emailParam);
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -40,7 +43,14 @@ const Signup = () => {
       });
       if (updateError) throw updateError;
 
+      const {
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser();
+      if (userError || !user) throw userError || new Error('User not found');
+
       const { error: insertError } = await supabase.from('users').insert({
+        id: user.id,
         name,
         email,
         role: 'forecaster',
@@ -62,7 +72,13 @@ const Signup = () => {
         <h2 className="text-xl font-bold text-gray-900 text-center">Complete Your Signup</h2>
         <div>
           <label className="block text-sm font-medium text-gray-700">Email</label>
-          <input type="email" value={email} disabled className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100" />
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={!!emailParam}
+            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 disabled:bg-gray-100"
+          />
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Name</label>
