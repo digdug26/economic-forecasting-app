@@ -9,13 +9,9 @@ const Signup = () => {
   const hashParams = new URLSearchParams(window.location.hash.slice(1));
 
   const token = searchParams.get('token') || hashParams.get('token') || '';
-  const emailParam =
-    searchParams.get('email') || hashParams.get('email') || '';
 
-  // Allow editing the email field only if it wasn't provided in the
-  // invitation link. Otherwise keep it read-only so the invited address
-  // can't be changed.
-  const [email, setEmail] = useState(emailParam);
+  // The invitation already specifies the email address, so only collect
+  // the user's name and desired password here.
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -52,7 +48,7 @@ const Signup = () => {
       const { error: insertError } = await supabase.from('users').insert({
         id: user.id,
         name,
-        email,
+        email: user.email,
         role: 'forecaster',
         must_change_password: false
       });
@@ -70,16 +66,6 @@ const Signup = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
       <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md space-y-4 max-w-md w-full">
         <h2 className="text-xl font-bold text-gray-900 text-center">Complete Your Signup</h2>
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Email</label>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            disabled={!!emailParam}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 disabled:bg-gray-100"
-          />
-        </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Name</label>
           <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md" required />
