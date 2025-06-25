@@ -1170,6 +1170,10 @@ const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFe
     const db = b.createdDate || b.created_at || b.close_date || '';
     return new Date(db) - new Date(da);
   });
+  const questionMap = questions.reduce((acc, q) => {
+    acc[q.id] = q.title;
+    return acc;
+  }, {});
 
   return (
     <div className="space-y-6">
@@ -1308,6 +1312,17 @@ const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFe
                     {item.title}
                   </a>
                   <p className="text-xs text-slate-500 mt-1">{item.source}</p>
+                  {item.relatedQuestions && item.relatedQuestions.length > 0 && (
+                    <p className="text-xs text-slate-500 mt-1">
+                      Related to:{' '}
+                      {item.relatedQuestions.map((qid, i) => (
+                        <span key={qid}>
+                          {questionMap[qid]}
+                          {i < item.relatedQuestions.length - 1 ? ', ' : ''}
+                        </span>
+                      ))}
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
