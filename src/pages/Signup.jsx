@@ -2,9 +2,15 @@ import React, { useState } from 'react';
 import { supabase } from '../supabase';
 
 const Signup = () => {
-  const params = new URLSearchParams(window.location.search);
-  const token = params.get('token') || '';
-  const emailParam = params.get('email') || '';
+  // Invitation links from Supabase may include parameters either in the
+  // query string or in the URL hash fragment. Parse both locations so the
+  // signup form works regardless of where the values are provided.
+  const searchParams = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+
+  const token = searchParams.get('token') || hashParams.get('token') || '';
+  const emailParam =
+    searchParams.get('email') || hashParams.get('email') || '';
 
   const [email] = useState(emailParam);
   const [name, setName] = useState('');
