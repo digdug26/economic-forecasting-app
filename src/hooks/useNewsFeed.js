@@ -8,11 +8,15 @@ const STOP_WORDS = new Set([
   'by','from','it','that','this','which','at','as','be'
 ]);
 
-function extractKeywords(questions) {
-  const text = questions.join(' ').toLowerCase();
-  const tokens = text.match(/\b[a-z]+\b/g) || [];
+function extractKeywordsFromText(text) {
+  const tokens = text.toLowerCase().match(/\b[a-z]+\b/g) || [];
   const filtered = tokens.filter(t => !STOP_WORDS.has(t));
   return Array.from(new Set(filtered));
+}
+
+function extractKeywords(questions) {
+  const text = questions.join(' ');
+  return extractKeywordsFromText(text);
 }
 
 export default function useNewsFeed(
@@ -41,10 +45,15 @@ export default function useNewsFeed(
       let guardianItems = [];
       let nytItems = [];
 
-      const keywords = Array.isArray(questions) && questions.length
-        ? extractKeywords(questions)
-        : topic.split(/\s+/);
-      const searchQuery = encodeURIComponent(keywords.join(' '));
+      const keywordsMap = Array.isArray(questions) && questions.length
+        ? questions.reduce((acc, q) => {
+            acc[q.id] = extractKeywordsFromText(q.title || '');
+            return acc;
+          }, {})
+        : {};
+      const allKeywords = Object.values(keywordsMap).flat();
+      const searchKeywords = allKeywords.length ? Array.from(new Set(allKeywords)) : topic.split(/\s+/);
+      const searchQuery = encodeURIComponent(searchKeywords.join(' '));
       const fromDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000)
         .toISOString()
         .split('T')[0];
@@ -98,7 +107,11 @@ export default function useNewsFeed(
           if (topRes.ok) {
             const json = await topRes.json();
             const topItems = json.results
-              .filter(r => keywords.some(k => r.title.toLowerCase().includes(k) || r.abstract.toLowerCase().includes(k)))
+              .filter(r =>
+                allKeywords.some(k =>
+                  r.title.toLowerCase().includes(k) || r.abstract.toLowerCase().includes(k)
+                )
+              )
               .map(r => ({
                 title: r.title,
                 url: r.url,
@@ -135,6 +148,16 @@ export default function useNewsFeed(
         for (const arr of sources) {
           if (i < arr.length) items.push(arr[i]);
         }
+      }
+
+      // relate articles to questions by matching keywords in the title
+      if (questions && questions.length) {
+        items.forEach(item => {
+          const lower = item.title.toLowerCase();
+          item.relatedQuestions = Object.entries(keywordsMap)
+            .filter(([, kws]) => kws.some(k => lower.includes(k)))
+            .map(([id]) => id);
+        });
       }
 
       setNews(items);
