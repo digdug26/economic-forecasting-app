@@ -3,6 +3,7 @@ import useNewsFeed from './hooks/useNewsFeed';
 import { Calendar, TrendingUp, Award, Plus, Lock, User, BarChart3, Clock, Target, Trophy, Globe, AlertCircle, Check, Trash } from 'lucide-react';
 
 import { supabase, getCurrentUser, validateSession, clearAuthStorage } from './supabase';
+import { adminService } from './services/adminService';
 import './utils/masterDiagnostics';
 
 // Utility to compute Brier scores across question types
@@ -374,45 +375,40 @@ const ForecastingApp = () => {
 };
 
   const createUser = async (userData) => {
-
     try {
       setError('');
 
-      // Check if current user is admin
-      if (currentUser.role !== 'admin') {
+      const isAdmin = await adminService.isCurrentUserAdmin();
+      if (!isAdmin) {
         setError('Only admins can create users');
         return false;
       }
 
-      // For demo users, simulate user creation
       if (currentUser?.id?.startsWith('demo-')) {
         const newDemoUser = {
           id: `demo-user-${Date.now()}`,
           email: userData.email,
           role: userData.role || 'forecaster',
           must_change_password: true,
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
         };
-
-        setUsers(prevUsers => [...prevUsers, newDemoUser]);
+        setUsers((prevUsers) => [...prevUsers, newDemoUser]);
         return true;
       }
 
-      // Call serverless function to send invitation email
-      const { error } = await supabase.functions.invoke('invite-user', {
-        body: { email: userData.email, role: userData.role }
-      });
+      const result = await adminService.createUserInvitation(
+        userData.email,
+        userData.name,
+        userData.role
+      );
 
-      if (error) {
-        console.error('Invite function error:', error);
-        throw error;
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
       setError(`✅ Invitation email sent to ${userData.email}`);
-
-      await loadAppData(); // Refresh users list
+      await loadAppData();
       return true;
-
     } catch (error) {
       console.error('Create user error:', error);
       setError(error.message || 'Failed to create user');
@@ -423,21 +419,21 @@ const ForecastingApp = () => {
   const deleteUser = async (uid) => {
     try {
       setError('');
-      if (currentUser.role !== 'admin') {
+
+      const isAdmin = await adminService.isCurrentUserAdmin();
+      if (!isAdmin) {
         setError('Only admins can delete users');
         return false;
       }
 
       if (currentUser?.id?.startsWith('demo-')) {
-        setUsers(prev => prev.filter(u => u.id !== uid));
+        setUsers((prev) => prev.filter((u) => u.id !== uid));
         showToast('User deleted');
         return true;
       }
 
-      const { error } = await supabase.functions.invoke('delete-user', {
-        body: { uid }
-      });
-      if (error) throw error;
+      const result = await adminService.deleteUser(uid);
+      if (!result.success) throw new Error(result.error);
 
       await loadAppData();
       showToast('User deleted');
@@ -490,30 +486,26 @@ const ForecastingApp = () => {
     try {
       setError('');
       
-      // Check if current user is admin before allowing question creation
-      if (currentUser.role !== 'admin') {
+      const isAdmin = await adminService.isCurrentUserAdmin();
+      if (!isAdmin) {
         setError('Only admins can create questions');
         return false;
       }
-      
-      const { error } = await supabase
-        .from('questions')
-        .insert([
-          {
-            title: questionData.title,
-            description: questionData.description,
-            data_resource_name: questionData.dataResourceName || null,
-            data_resource_url: questionData.dataResourceUrl || null,
-            close_date: questionData.closeDate || null,
-            type: questionData.type,
-            categories: questionData.type === 'three-category' ? questionData.categories : null,
-            options: questionData.type === 'multiple-choice' ? questionData.options : null,
-            created_by: currentUser.id
-          }
-        ])
-        .select();
 
-      if (error) throw error;
+      const payload = {
+        title: questionData.title,
+        description: questionData.description,
+        data_resource_name: questionData.dataResourceName || null,
+        data_resource_url: questionData.dataResourceUrl || null,
+        close_date: questionData.closeDate || null,
+        type: questionData.type,
+        categories: questionData.type === 'three-category' ? questionData.categories : null,
+        options: questionData.type === 'multiple-choice' ? questionData.options : null,
+        created_by: currentUser.id,
+      };
+
+      const result = await adminService.createQuestion(payload);
+      if (!result.success) throw new Error(result.error);
 
       await loadAppData(); // Refresh questions list
       return true;
@@ -528,7 +520,8 @@ const ForecastingApp = () => {
     try {
       setError('');
 
-      if (currentUser.role !== 'admin') {
+      const isAdmin = await adminService.isCurrentUserAdmin();
+      if (!isAdmin) {
         setError('Only admins can edit questions');
         return false;
       }
@@ -557,22 +550,19 @@ const ForecastingApp = () => {
         return true;
       }
 
-      const { error } = await supabase
-        .from('questions')
-        .update({
-          title: updates.title,
-          description: updates.description,
-          data_resource_name: updates.dataResourceName || null,
-          data_resource_url: updates.dataResourceUrl || null,
-          close_date: updates.closeDate || null,
-          type: updates.type,
-          categories: updates.type === 'three-category' ? updates.categories : null,
-          options: updates.type === 'multiple-choice' ? updates.options : null,
-        })
-        .eq('id', id)
-        .select();
+      const payload = {
+        title: updates.title,
+        description: updates.description,
+        data_resource_name: updates.dataResourceName || null,
+        data_resource_url: updates.dataResourceUrl || null,
+        close_date: updates.closeDate || null,
+        type: updates.type,
+        categories: updates.type === 'three-category' ? updates.categories : null,
+        options: updates.type === 'multiple-choice' ? updates.options : null,
+      };
 
-      if (error) throw error;
+      const result = await adminService.updateQuestion(id, payload);
+      if (!result.success) throw new Error(result.error);
 
       await loadAppData();
       return true;
@@ -587,8 +577,8 @@ const ForecastingApp = () => {
     try {
       setError('');
 
-      // Check if current user is admin before allowing question resolution
-      if (currentUser.role !== 'admin') {
+      const isAdmin = await adminService.isCurrentUserAdmin();
+      if (!isAdmin) {
         setError('Only admins can resolve questions');
         return false;
       }
@@ -613,16 +603,12 @@ const ForecastingApp = () => {
         return true;
       }
 
-      const { error } = await supabase.from('questions')
-        .update({
-          is_resolved: true,
-          resolution: resolution,
-          resolved_date: new Date().toISOString().split('T')[0]
-        })
-        .eq('id', questionId)
-        .select();
-
-      if (error) throw error;
+      const result = await adminService.resolveQuestion(questionId, {
+        is_resolved: true,
+        resolution: resolution,
+        resolved_date: new Date().toISOString().split('T')[0],
+      });
+      if (!result.success) throw new Error(result.error);
 
       await loadAppData(); // Refresh questions list
       return true;
@@ -636,7 +622,8 @@ const ForecastingApp = () => {
   const deleteQuestion = async (id) => {
     try {
       setError('');
-      if (currentUser.role !== 'admin') {
+      const isAdmin = await adminService.isCurrentUserAdmin();
+      if (!isAdmin) {
         setError('Only admins can delete questions');
         return false;
       }
@@ -647,8 +634,8 @@ const ForecastingApp = () => {
         return true;
       }
 
-      const { error } = await supabase.from('questions').delete().eq('id', id);
-      if (error) throw error;
+      const result = await adminService.deleteQuestion(id);
+      if (!result.success) throw new Error(result.error);
 
       await loadAppData();
       showToast('Question deleted');
