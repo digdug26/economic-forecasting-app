@@ -1307,17 +1307,6 @@ const DashboardView = ({ currentUser, questions, forecasts, getUserStats, newsFe
                     {item.title}
                   </a>
                   <p className="text-xs text-slate-500 mt-1">{item.source}</p>
-                  {item.relatedQuestions && item.relatedQuestions.length > 0 && (
-                    <p className="text-xs text-slate-500 mt-1">
-                      Related to:{' '}
-                      {item.relatedQuestions.map((qid, i) => (
-                        <span key={qid}>
-                          {questionMap[qid]}
-                          {i < item.relatedQuestions.length - 1 ? ', ' : ''}
-                        </span>
-                      ))}
-                    </p>
-                  )}
                 </div>
               ))}
             </div>
