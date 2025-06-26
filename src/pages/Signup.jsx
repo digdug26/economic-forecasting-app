@@ -45,14 +45,19 @@ const Signup = () => {
       } = await supabase.auth.getUser();
       if (userError || !user) throw userError || new Error('User not found');
 
-      const { error: insertError } = await supabase.from('users').insert({
-        id: user.id,
-        name,
-        email: user.email,
-        role: 'forecaster',
-        must_change_password: false
-      });
-      if (insertError) throw insertError;
+      const { error: upsertError } = await supabase
+        .from('users')
+        .upsert(
+          {
+            id: user.id,
+            name,
+            email: user.email,
+            role: 'forecaster',
+            must_change_password: false
+          },
+          { onConflict: 'id' }
+        );
+      if (upsertError) throw upsertError;
 
       window.location.href = '/';
     } catch (err) {
