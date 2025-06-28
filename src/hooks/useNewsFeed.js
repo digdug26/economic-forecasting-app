@@ -14,10 +14,6 @@ function extractKeywordsFromText(text) {
   return Array.from(new Set(filtered));
 }
 
-function extractKeywords(questions) {
-  const text = questions.join(' ');
-  return extractKeywordsFromText(text);
-}
 
 export default function useNewsFeed(
   topic = 'economy',
