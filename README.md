@@ -4,6 +4,7 @@ This project was bootstrapped with [Create React App](https://github.com/faceboo
 
 ## Environment Setup
 
+Run `nvm use` before installing dependencies to use Node 22.
 Copy `.env.example` to `.env` and fill in the values before building or
 deploying the project. The following environment variables are supported:
 
