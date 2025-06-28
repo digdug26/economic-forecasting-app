@@ -656,8 +656,10 @@ const ForecastingApp = () => {
       userForecasts.some(f => f.question_id === q.id)
     );
 
+    const uniqueQuestionsAnswered = new Set(userForecasts.map(f => f.question_id)).size;
+
     if (answeredQuestions.length === 0) {
-      return { brierScore: 0, questionsAnswered: userForecasts.length, accuracy: 0 };
+      return { brierScore: 0, questionsAnswered: uniqueQuestionsAnswered, accuracy: 0 };
     }
 
     let totalBrierScore = 0;
@@ -688,11 +690,11 @@ const ForecastingApp = () => {
       }
     });
 
-    return {
-      brierScore: (totalBrierScore / answeredQuestions.length).toFixed(3),
-      questionsAnswered: userForecasts.length,
-      accuracy: answeredQuestions.length > 0 ? ((correctPredictions / answeredQuestions.length) * 100).toFixed(1) : 0
-    };
+      return {
+        brierScore: (totalBrierScore / answeredQuestions.length).toFixed(3),
+        questionsAnswered: uniqueQuestionsAnswered,
+        accuracy: answeredQuestions.length > 0 ? ((correctPredictions / answeredQuestions.length) * 100).toFixed(1) : 0
+      };
   };
 
   const getLeaderboard = () => {
