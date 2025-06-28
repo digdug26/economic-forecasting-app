@@ -9,6 +9,7 @@ Copy `.env.example` to `.env` and fill in the values before building or
 deploying the project. The following environment variables are supported:
 
 - `NEXT_PUBLIC_SITE_URL` (or `REACT_APP_SITE_URL`)
+- Optional: `REACT_APP_RESET_DOMAIN` - domain for password reset links
 - `REACT_APP_SUPABASE_URL`
 - `REACT_APP_SUPABASE_ANON_KEY`
 - Optional: `REACT_APP_SUPABASE_SERVICE_ROLE_KEY`
@@ -16,6 +17,7 @@ deploying the project. The following environment variables are supported:
 - Optional: `REACT_APP_NEWS_API_KEY` - NewsAPI key for the Economic News widget
 - Optional: `REACT_APP_GUARDIAN_API_KEY` - Guardian Open Platform key for additional news from The Guardian (request skipped if unset)
 - Optional: `REACT_APP_NYT_API_KEY` - New York Times API key for headlines
+- `SUPABASE_SERVICE_ROLE_KEY` - required for Supabase edge functions
 
 These values must be provided before running `npm run build` or starting a
 deployment.
