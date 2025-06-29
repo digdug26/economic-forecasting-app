@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
 const Signup = () => {
@@ -9,6 +9,14 @@ const Signup = () => {
   const hashParams = new URLSearchParams(window.location.hash.slice(1));
 
   const token = searchParams.get('token') || hashParams.get('token') || '';
+  const access_token = hashParams.get('access_token');
+  const refresh_token = hashParams.get('refresh_token');
+
+  useEffect(() => {
+    if (access_token && refresh_token) {
+      supabase.auth.setSession({ access_token, refresh_token });
+    }
+  }, [access_token, refresh_token]);
 
   // The invitation already specifies the email address, so only collect
   // the user's name and desired password here.
@@ -28,7 +36,7 @@ const Signup = () => {
     setLoading(true);
     setError('');
     try {
-      if (token) {
+      if (!access_token && !refresh_token && token) {
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(token);
         if (exchangeError) throw exchangeError;
       }
