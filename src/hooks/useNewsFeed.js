@@ -57,7 +57,14 @@ export default function useNewsFeed(
       const newsApiKey = process.env.REACT_APP_NEWS_API_KEY;
       if (newsApiKey) {
         try {
-          const url = `https://newsapi.org/v2/everything?q=${searchQuery}&sources=ap,bbc-news,reuters,npr,the-guardian-uk&language=en&from=${fromDate}&sortBy=publishedAt&apiKey=${newsApiKey}`;
+          // NewsAPI changed their free tier to only allow the top-headlines
+          // endpoint. Using the everything endpoint now results in a 426
+          // Upgrade Required error. Switch to top-headlines and drop the
+          // unsupported parameters.
+          const url =
+            `https://newsapi.org/v2/top-headlines?q=${searchQuery}` +
+            `&sources=ap,bbc-news,reuters,npr,the-guardian-uk` +
+            `&language=en&pageSize=100&apiKey=${newsApiKey}`;
           const res = await fetch(url);
           if (res.ok) {
             const json = await res.json();
@@ -67,6 +74,8 @@ export default function useNewsFeed(
               source: a.source?.name || 'NewsAPI',
               publishedAt: a.publishedAt
             }));
+          } else {
+            console.warn('NewsAPI request failed', res.status, res.statusText);
           }
         } catch (err) {
           console.error('NewsAPI error', err);
