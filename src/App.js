@@ -226,7 +226,8 @@ const ForecastingApp = () => {
 
   // Sample questions
   useEffect(() => {
-    const sampleQuestions = [
+    if (process.env.NODE_ENV === 'development') {
+      const sampleQuestions = [
       {
         id: 1,
         title: "Will the Federal Reserve raise interest rates by June 30, 2025?",
@@ -275,7 +276,8 @@ const ForecastingApp = () => {
       if (!b.close_date) return -1;
       return new Date(a.close_date) - new Date(b.close_date);
     });
-    setQuestions(sampleQuestions);
+      setQuestions(sampleQuestions);
+    }
   }, []);
 
   // Economic news headlines
