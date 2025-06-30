@@ -5,12 +5,18 @@ const Signup = () => {
   // Invitation links from Supabase may include parameters either in the
   // query string or in the URL hash fragment. Parse both locations so the
   // signup form works regardless of where the values are provided.
-  const searchParams = new URLSearchParams(window.location.search);
-  const hashParams = new URLSearchParams(window.location.hash.slice(1));
+const searchParams = new URLSearchParams(window.location.search);
+const hashParams = new URLSearchParams(window.location.hash.slice(1));
 
-  const token = searchParams.get('token') || hashParams.get('token') || '';
-  const access_token = hashParams.get('access_token');
-  const refresh_token = hashParams.get('refresh_token');
+// Supabase may return the invitation verifier as either `token` or `code`.
+const token =
+  searchParams.get('token') ||
+  searchParams.get('code')  ||
+  hashParams.get('token')   ||
+  hashParams.get('code')    ||
+  '';
+const access_token = hashParams.get('access_token');
+const refresh_token = hashParams.get('refresh_token');
 
   useEffect(() => {
     if (access_token && refresh_token) {
