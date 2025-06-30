@@ -109,6 +109,26 @@ export const validateSession = async () => {
       error,
     } = await supabase.auth.getSession()
     if (error || !session) {
+      // Attempt manual recovery from stored token if Supabase did not
+      // initialize the session yet (e.g. in private browsing).
+      try {
+        const raw = localStorage.getItem(`${AUTH_STORAGE_PREFIX}-token`)
+        if (raw) {
+          const parsed = JSON.parse(raw)
+          const current = parsed.currentSession || parsed
+          if (current?.access_token && current?.refresh_token) {
+            const { data: recovered } = await supabase.auth.setSession({
+              access_token: current.access_token,
+              refresh_token: current.refresh_token,
+            })
+            if (recovered.session) {
+              return recovered.session
+            }
+          }
+        }
+      } catch (parseError) {
+        console.error('Failed to recover stored session', parseError)
+      }
       await supabase.auth.signOut()
       clearAuthStorage()
       return null
