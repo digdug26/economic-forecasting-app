@@ -9,7 +9,10 @@ if (!supabaseUrl || !supabaseKey) {
   )
 }
 
-export const AUTH_STORAGE_PREFIX = 'forecasting-app.auth'
+// Allow the auth storage key to be customized via env var so
+// multiple Supabase apps on the same domain don't clash.
+export const AUTH_STORAGE_PREFIX =
+  process.env.REACT_APP_AUTH_STORAGE_PREFIX || 'forecasting-app.auth'
 
 // Ensure we only ever create a single Supabase client, even during
 // React fast refresh/hot module replacement.  We store the instance on

@@ -32,11 +32,12 @@ key for the auth client. The default in this project is `forecasting-app.auth`.
 This prevents one app from overwriting another's session and helps avoid errors
 such as "Invalid Refresh Token" after a browser refresh.
 
-You can customize this value by editing the `AUTH_STORAGE_PREFIX` constant in
-`src/supabase.js`. If an "Invalid Refresh Token" error does occur, the
-application's `validateSession` logic will automatically clear the stored
-session and sign the user out. After the stale session is removed, simply log in
-again to obtain a fresh session.
+You can customize this value either by editing the `AUTH_STORAGE_PREFIX`
+constant in `src/supabase.js` or by setting the
+`REACT_APP_AUTH_STORAGE_PREFIX` environment variable. If an "Invalid Refresh
+Token" error does occur, the application's `validateSession` logic will
+automatically clear the stored session and sign the user out. After the stale
+session is removed, simply log in again to obtain a fresh session.
 
 ## Supabase Edge Function
 
