@@ -1,0 +1,462 @@
+-- Enable UUID extension
+create extension if not exists "uuid-ossp";
+
+-- Users table (extends Supabase auth)
+create table public.users (
+  id uuid references auth.users on delete cascade primary key,
+  email text unique not null,
+  role text default 'forecaster' check (role in ('admin', 'forecaster')),
+  name text,
+  must_change_password boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Questions table
+create table public.questions (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  description text,
+  type text not null check (type in ('binary', 'three-category', 'multiple-choice')),
+  categories jsonb, -- for three-category questions: ["Increase", "Remain Unchanged", "Decrease"]
+  options jsonb, -- for multiple-choice questions: ["Option A", "Option B", "Option C"]
+  created_date date default current_date,
+  resolved_date date,
+  resolution jsonb, -- stores the actual outcome
+  is_resolved boolean default false,
+  created_by uuid references public.users(id),
+  created_at timestamptz default now()
+);
+
+-- Forecasts table
+create table public.forecasts (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references public.users(id) on delete cascade not null,
+  question_id uuid references public.questions(id) on delete cascade not null,
+  forecast jsonb not null, -- stores probability values: {"probability": 70} or {"increase": 30, "unchanged": 40, "decrease": 30}
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Create unique constraint for one forecast per user per question
+create unique index forecasts_user_question_idx on public.forecasts(user_id, question_id);
+
+-- Create indexes for better performance
+create index questions_created_date_idx on public.questions(created_date);
+create index questions_is_resolved_idx on public.questions(is_resolved);
+create index forecasts_user_id_idx on public.forecasts(user_id);
+create index forecasts_question_id_idx on public.forecasts(question_id);
+
+-- Enable RLS
+alter table public.users enable row level security;
+alter table public.questions enable row level security;
+alter table public.forecasts enable row level security;
+
+-- RLS Policies
+
+-- First, drop the problematic policies that cause infinite recursion
+DROP POLICY IF EXISTS "Admins can manage all users" ON public.users;
+DROP POLICY IF EXISTS "Admins can manage questions" ON public.questions;
+
+-- Users policies
+create policy "Users can read all users" on public.users for select using (true);
+create policy "Users can update own profile" on public.users for update using (auth.uid() = id);
+create policy "Admins can manage all users" on public.users for all using (
+  exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+);
+
+-- Questions policies
+-- For questions table: Allow reading, restrict admin operations differently
+CREATE POLICY "Anyone can read questions" ON public.questions FOR SELECT USING (true);
+create policy "Admins can manage questions" on public.questions for all using (
+  exists (select 1 from public.users where id = auth.uid() and role = 'admin')
+);
+
+-- Forecasts policies
+create policy "Users can read all forecasts" on public.forecasts for select using (true);
+create policy "Users can insert own forecasts" on public.forecasts for insert with check (auth.uid() = user_id);
+create policy "Users can update own forecasts" on public.forecasts for update using (auth.uid() = user_id);
+create policy "Users can delete own forecasts" on public.forecasts for delete using (auth.uid() = user_id);
+
+-- Function to handle user creation
+create or replace function public.handle_new_user() 
+returns trigger as $$
+begin
+  insert into public.users (id, email, name, role, must_change_password)
+  values (new.id, new.email, new.raw_user_meta_data->>'name', 
+          coalesce(new.raw_user_meta_data->>'role', 'forecaster'),
+          coalesce((new.raw_user_meta_data->>'must_change_password')::boolean, false));
+  return new;
+end;
+$$ language plpgsql security definer;
+
+-- Trigger to create user profile on signup
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+
+-- Insert sample questions (keeping the existing ones)
+insert into public.questions (title, type, description, categories, options) values
+(
+  'Will the Federal Reserve raise interest rates by June 30, 2025?',
+  'binary',
+  'Based on FOMC decisions and official announcements',
+  null,
+  null
+),
+(
+  'What will happen to US unemployment rate in July 2025?',
+  'three-category', 
+  'Compared to June 2025 rate, rounded to nearest tenth of one percent',
+  '["Increase", "Remain Unchanged", "Decrease"]'::jsonb,
+  null
+),
+(
+  'Which sector will have the highest GDP growth in Q2 2025?',
+  'multiple-choice',
+  'Based on BEA sector-specific GDP data', 
+  null,
+  '["Technology", "Healthcare", "Financial Services", "Manufacturing", "Energy"]'::jsonb
+);
+
+
+-- First, drop the problematic policies that cause infinite recursion
+DROP POLICY IF EXISTS "Admins can manage all users" ON public.users;
+DROP POLICY IF EXISTS "Admins can manage questions" ON public.questions;
+
+
+-- Create fixed policies that don't cause recursion
+
+-- For users table: Allow reading all users, but restrict admin operations
+CREATE POLICY "Anyone can read users" ON public.users 
+FOR SELECT USING (true);
+
+-- For now, we'll allow INSERT operations (needed for the trigger when users sign up)
+-- We'll handle admin user creation through a different method
+CREATE POLICY "Allow user creation" ON public.users 
+FOR INSERT WITH CHECK (true);
+
+
+
+-- For questions, we'll check admin status in the application layer instead of RLS
+-- This avoids the circular reference problem
+CREATE POLICY "Allow question creation" ON public.questions 
+FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Allow question updates" ON public.questions 
+FOR UPDATE USING (true);
+
+CREATE POLICY "Allow question deletion" ON public.questions 
+FOR DELETE USING (true);
+
+
+-- Create a function to handle user creation that admins can call
+CREATE OR REPLACE FUNCTION create_new_user(
+  user_email TEXT,
+  user_password TEXT,
+  user_name TEXT,
+  user_role TEXT DEFAULT 'forecaster'
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  new_user_id UUID;
+  result JSON;
+BEGIN
+  -- Validate inputs
+  IF user_email IS NULL OR user_email = '' THEN
+    RETURN json_build_object('success', false, 'error', 'Email is required');
+  END IF;
+  
+  IF user_password IS NULL OR LENGTH(user_password) < 6 THEN
+    RETURN json_build_object('success', false, 'error', 'Password must be at least 6 characters');
+  END IF;
+  
+  IF user_role NOT IN ('admin', 'forecaster') THEN
+    RETURN json_build_object('success', false, 'error', 'Invalid role');
+  END IF;
+
+  -- Check if email already exists
+  IF EXISTS (SELECT 1 FROM auth.users WHERE email = user_email) THEN
+    RETURN json_build_object('success', false, 'error', 'Email already exists');
+  END IF;
+
+  
+
+
+
+  
+-- Create your admin user directly in the auth system
+INSERT INTO auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  created_at,
+  updated_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  is_super_admin,
+  confirmation_token,
+  email_change,
+  email_change_token_new,
+  recovery_token
+) VALUES (
+  '00000000-0000-0000-0000-000000000000',
+  gen_random_uuid(),
+  'authenticated',
+  'authenticated',
+  'k.dougwalls@gmail.com',
+  crypt('TempPass123!', gen_salt('bf')),
+  NOW(),
+  NOW(),
+  NOW(),
+  '{"provider": "email", "providers": ["email"]}',
+  '{"name": "Kyle Douglas", "role": "admin", "must_change_password": true}',
+  false,
+  '',
+  '',
+  '',
+  ''
+);
+
+
+-- Create the profile in public.users using the ID from the auth user we just created
+INSERT INTO public.users (id, email, name, role, must_change_password)
+SELECT id, email, 'Kyle Douglas', 'admin', true
+FROM auth.users 
+WHERE email = 'k.dougwalls@gmail.com';
+
+
+-- Check that both records were created
+SELECT 'Auth User:' as type, id, email FROM auth.users WHERE email = 'k.dougwalls@gmail.com'
+UNION ALL
+SELECT 'Profile:' as type, id, email FROM public.users WHERE email = 'k.dougwalls@gmail.com';
+
+
+-- Update the name in the public.users table
+UPDATE public.users 
+SET name = 'DigDugDataMole' 
+WHERE email = 'k.dougwalls@gmail.com';
+
+-- Update the name in the auth.users metadata
+UPDATE auth.users 
+SET raw_user_meta_data = '{"name": "DigDugDataMole", "role": "admin", "must_change_password": true}'
+WHERE email = 'k.dougwalls@gmail.com';
+
+-- Check the updated records
+SELECT 'Profile:' as type, name, email, role FROM public.users WHERE email = 'k.dougwalls@gmail.com'
+UNION ALL
+SELECT 'Auth Metadata:' as type, raw_user_meta_data->>'name' as name, email, raw_user_meta_data->>'role' as role FROM auth.users WHERE email = 'k.dougwalls@gmail.com';
+
+-- Check if the function exists
+SELECT routine_name, routine_type 
+FROM information_schema.routines 
+WHERE routine_name = 'create_new_user' 
+AND routine_schema = 'public';
+
+
+
+
+
+
+
+
+
+-- First, create a proper invitations table (separate from users)
+CREATE TABLE IF NOT EXISTS public.user_invitations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  role TEXT NOT NULL CHECK (role IN ('admin', 'forecaster')),
+  invited_by UUID REFERENCES public.users(id),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  used_at TIMESTAMPTZ NULL,
+  expires_at TIMESTAMPTZ DEFAULT (NOW() + INTERVAL '7 days')
+);
+
+-- Enable RLS on invitations
+ALTER TABLE public.user_invitations ENABLE ROW LEVEL SECURITY;
+
+-- Allow admins to manage invitations
+CREATE POLICY "Admins can manage invitations" ON public.user_invitations
+  FOR ALL USING (
+    EXISTS (
+      SELECT 1 FROM public.users 
+      WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+-- Drop the problematic function and create a working one
+DROP FUNCTION IF EXISTS public.create_new_user(text, text, text, text);
+
+CREATE OR REPLACE FUNCTION public.create_user_invitation(
+  user_email TEXT,
+  user_name TEXT,
+  user_role TEXT DEFAULT 'forecaster'
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  inviting_user_id UUID;
+BEGIN
+  -- Get the current user ID (the admin creating the invitation)
+  inviting_user_id := auth.uid();
+  
+  -- Input validation
+  IF user_email IS NULL OR LENGTH(TRIM(user_email)) = 0 THEN
+    RETURN json_build_object('success', false, 'error', 'Email is required');
+  END IF;
+  
+  IF user_name IS NULL OR LENGTH(TRIM(user_name)) = 0 THEN
+    RETURN json_build_object('success', false, 'error', 'Name is required');
+  END IF;
+  
+  IF user_role NOT IN ('admin', 'forecaster') THEN
+    RETURN json_build_object('success', false, 'error', 'Role must be admin or forecaster');
+  END IF;
+
+  -- Check if email already exists in auth.users
+  IF EXISTS (SELECT 1 FROM auth.users WHERE email = user_email) THEN
+    RETURN json_build_object('success', false, 'error', 'User with this email already exists');
+  END IF;
+
+  -- Check if invitation already exists
+  IF EXISTS (SELECT 1 FROM public.user_invitations WHERE email = user_email AND used_at IS NULL) THEN
+    RETURN json_build_object('success', false, 'error', 'Invitation already exists for this email');
+  END IF;
+
+  -- Create the invitation
+  INSERT INTO public.user_invitations (
+    email,
+    name,
+    role,
+    invited_by
+  ) VALUES (
+    user_email,
+    user_name,
+    user_role,
+    inviting_user_id
+  );
+
+  RETURN json_build_object(
+    'success', true,
+    'message', 'Invitation created successfully',
+    'email', user_email,
+    'instructions', 'Send the user a link to sign up at your application'
+  );
+
+EXCEPTION WHEN OTHERS THEN
+  RETURN json_build_object(
+    'success', false, 
+    'error', 'Failed to create invitation: ' || SQLERRM
+  );
+END;
+$$;
+
+-- Grant permissions
+GRANT EXECUTE ON FUNCTION public.create_user_invitation(text, text, text) TO authenticated;
+
+-- Update the trigger to handle invitations
+CREATE OR REPLACE FUNCTION public.handle_new_user_with_invitation() 
+RETURNS TRIGGER AS $$
+DECLARE
+  invitation_record RECORD;
+BEGIN
+  -- Check if there's an invitation for this email
+  SELECT * INTO invitation_record 
+  FROM public.user_invitations 
+  WHERE email = NEW.email AND used_at IS NULL;
+  
+  IF FOUND THEN
+    -- Create user with invitation details
+    INSERT INTO public.users (id, email, name, role, must_change_password)
+    VALUES (
+      NEW.id, 
+      NEW.email, 
+      invitation_record.name,
+      invitation_record.role,
+      true  -- They must change password
+    );
+    
+    -- Mark invitation as used
+    UPDATE public.user_invitations 
+    SET used_at = NOW() 
+    WHERE email = NEW.email;
+    
+  ELSE
+    -- No invitation, create regular user
+    INSERT INTO public.users (id, email, name, role, must_change_password)
+    VALUES (
+      NEW.id, 
+      NEW.email, 
+      COALESCE(NEW.raw_user_meta_data->>'name', 'User'), 
+      'forecaster',  -- Default role for non-invited users
+      false
+    );
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Update the trigger
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user_with_invitation();
+
+-- Test the invitation system
+SELECT create_user_invitation(
+  'test@example.com',
+  'Test User',
+  'forecaster'
+);
+
+-- Add the close_date column to the questions table
+ALTER TABLE public.questions 
+--ADD COLUMN close_date date,
+ADD COLUMN data_resource_name text,
+ADD COLUMN data_resource_url text;
+
+-- Add a check constraint for valid URL format (optional but recommended)
+ALTER TABLE public.questions
+ADD CONSTRAINT data_resource_url_valid_format 
+CHECK (data_resource_url IS NULL OR data_resource_url ~ '^https?://');
+
+-- Create an index for better performance when sorting by close_date
+CREATE INDEX questions_close_date_idx ON public.questions(close_date);
+
+-- Optional: Add a check constraint to ensure close_date is after created_date
+ALTER TABLE public.questions 
+ADD CONSTRAINT close_date_after_created_date 
+CHECK (close_date >= created_date);
+
+-- Notify PostgREST to reload the schema cache
+NOTIFY pgrst, 'reload schema';
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
