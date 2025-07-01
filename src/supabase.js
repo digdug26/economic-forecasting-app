@@ -103,12 +103,14 @@ export const getCurrentUser = async () => {
 // Validate the current auth session and clear any invalid state
 export const validateSession = async () => {
   if (!supabase) return null
+  console.log('Validating existing auth session')
   try {
     const {
       data: { session },
       error,
     } = await supabase.auth.getSession()
     if (error || !session) {
+      console.warn('No active session found, attempting recovery')
       // Attempt manual recovery from stored token if Supabase did not
       // initialize the session yet (e.g. in private browsing).
       try {
@@ -117,11 +119,13 @@ export const validateSession = async () => {
           const parsed = JSON.parse(raw)
           const current = parsed.currentSession || parsed
           if (current?.access_token && current?.refresh_token) {
+            console.log('Restoring session from local storage')
             const { data: recovered } = await supabase.auth.setSession({
               access_token: current.access_token,
               refresh_token: current.refresh_token,
             })
             if (recovered.session) {
+              console.log('Session recovery successful')
               return recovered.session
             }
           }
@@ -129,10 +133,12 @@ export const validateSession = async () => {
       } catch (parseError) {
         console.error('Failed to recover stored session', parseError)
       }
+      console.log('Clearing invalid auth state')
       await supabase.auth.signOut()
       clearAuthStorage()
       return null
     }
+    console.log('Existing session valid')
     return session
   } catch (err) {
     console.error('Session validation failed:', err)
