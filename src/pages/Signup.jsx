@@ -34,6 +34,8 @@ const refresh_token = hashParams.get('refresh_token');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log('Signup form submitted');
+    console.log('Tokens', { token, access_token, refresh_token });
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -43,21 +45,26 @@ const refresh_token = hashParams.get('refresh_token');
     setError('');
     try {
       if (!access_token && !refresh_token && token) {
+        console.log('Exchanging invitation code for session');
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(token);
         if (exchangeError) throw exchangeError;
+        console.log('Code exchange successful');
       }
 
+      console.log('Updating user profile');
       const { error: updateError } = await supabase.auth.updateUser({
         password,
         data: { name }
       });
       if (updateError) throw updateError;
+      console.log('User update successful');
 
       const {
         data: { user },
         error: userError
       } = await supabase.auth.getUser();
       if (userError || !user) throw userError || new Error('User not found');
+      console.log('Authenticated user', user);
 
       const { error: upsertError } = await supabase
         .from('users')
@@ -72,9 +79,18 @@ const refresh_token = hashParams.get('refresh_token');
           { onConflict: 'id' }
         );
       if (upsertError) throw upsertError;
+      console.log('User profile upserted');
+
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      console.log('Profile verification', { verifyData, verifyError });
 
       window.location.href = '/';
     } catch (err) {
+      console.error('Signup error', err);
       setError(err.message || 'Signup failed');
     } finally {
       setLoading(false);
