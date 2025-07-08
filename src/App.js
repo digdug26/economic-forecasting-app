@@ -647,10 +647,10 @@ const ForecastingApp = () => {
       userForecasts.some(f => f.question_id === q.id)
     );
 
-    const uniqueQuestionsAnswered = new Set(userForecasts.map(f => f.question_id)).size;
+    const totalForecasts = userForecasts.length;
 
     if (answeredQuestions.length === 0) {
-      return { brierScore: 0, questionsAnswered: uniqueQuestionsAnswered, accuracy: 0 };
+      return { brierScore: 0, questionsAnswered: totalForecasts, accuracy: 0 };
     }
 
     let totalBrierScore = 0;
@@ -683,7 +683,7 @@ const ForecastingApp = () => {
 
       return {
         brierScore: (totalBrierScore / answeredQuestions.length).toFixed(3),
-        questionsAnswered: uniqueQuestionsAnswered,
+        questionsAnswered: totalForecasts,
         accuracy: answeredQuestions.length > 0 ? ((correctPredictions / answeredQuestions.length) * 100).toFixed(1) : 0
       };
   };
