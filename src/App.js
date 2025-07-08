@@ -187,24 +187,11 @@ const ForecastingApp = () => {
       const today = new Date().toISOString().split('T')[0];
       const processed = [];
       for (const q of questionsResult.data || []) {
-        let isResolved = q.is_resolved;
-        let resolvedDate = q.resolved_date;
-
-        if (!isResolved && q.close_date && new Date(q.close_date) <= new Date(today)) {
-          isResolved = true;
-          resolvedDate = q.close_date;
-          if (!currentUser?.id?.startsWith('demo-')) {
-            await supabase
-              .from('questions')
-              .update({ is_resolved: true, resolved_date: resolvedDate })
-              .eq('id', q.id);
-          }
-        }
-
         processed.push({
           ...q,
-          isResolved,
-          resolvedDate,
+          isResolved: q.is_resolved,
+          resolvedDate: q.resolved_date,
+          isClosed: q.close_date && new Date(q.close_date) <= new Date(today),
         });
       }
 
@@ -226,6 +213,7 @@ const ForecastingApp = () => {
 
   // Sample questions
   useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
     const sampleQuestions = [
       {
         id: 1,
@@ -238,7 +226,8 @@ const ForecastingApp = () => {
         close_date: "2025-06-01",
         resolvedDate: null,
         resolution: null,
-        isResolved: false
+        isResolved: false,
+        isClosed: "2025-06-01" <= today
       },
       {
         id: 2,
@@ -252,7 +241,8 @@ const ForecastingApp = () => {
         close_date: "2025-06-15",
         resolvedDate: null,
         resolution: null,
-        isResolved: false
+        isResolved: false,
+        isClosed: "2025-06-15" <= today
       },
       {
         id: 3,
@@ -266,7 +256,8 @@ const ForecastingApp = () => {
         close_date: "2025-06-20",
         resolvedDate: null,
         resolution: null,
-        isResolved: false
+        isResolved: false,
+        isClosed: "2025-06-20" <= today
       }
     ];
     sampleQuestions.sort((a, b) => {
@@ -1401,6 +1392,11 @@ const QuestionCard = ({ question, forecasts, currentUser, onSelect, isSelected }
               <Lock className="h-3 w-3 mr-1" />
               Closed
             </span>
+          ) : question.isClosed ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+              <Lock className="h-3 w-3 mr-1" />
+              Closed
+            </span>
           ) : userForecast ? (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
               Forecasted
@@ -1595,6 +1591,52 @@ const ForecastForm = ({ question, forecasts, currentUser, onSubmitForecast }) =>
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  if (question.isClosed) {
+    return (
+      <div className="bg-white p-6 rounded-lg shadow-sm border border-slate-200">
+        <h3 className="text-lg font-medium text-slate-900 mb-4">Question Closed</h3>
+        {question.description && (
+          <p className="text-sm text-slate-600 mb-2">{question.description}</p>
+        )}
+        {existingForecast && (
+          <div className="mt-4 bg-blue-50 p-4 rounded-lg">
+            <p className="text-sm text-blue-600 mb-2">Your Forecast:</p>
+            {question.type === 'binary' && (
+              <p className="font-medium text-blue-900">{existingForecast.forecast.probability}%</p>
+            )}
+            {question.type === 'three-category' && (
+              (() => {
+                const data = normalizeForecast(existingForecast.forecast);
+                return (
+                  <div className="space-y-1">
+                    <p className="text-sm">Increase: {data.increase}%</p>
+                    <p className="text-sm">Unchanged: {data.unchanged}%</p>
+                    <p className="text-sm">Decrease: {data.decrease}%</p>
+                  </div>
+                );
+              })()
+            )}
+          </div>
+        )}
+
+        {userForecasts.length > 0 && (
+          <div className="mt-6">
+            <h4 className="text-sm font-medium text-slate-900 mb-2">Submission History</h4>
+            <div className="space-y-1 text-sm">
+              {userForecasts.map((f) => (
+                <div key={f.id} className="flex justify-between">
+                  <span>{new Date(f.updated_at).toLocaleString()}</span>
+                  <span className="font-mono">{formatForecast(f.forecast)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <p className="text-sm text-slate-600 mt-4">Awaiting resolution by an administrator.</p>
       </div>
     );
   }
@@ -2465,7 +2507,12 @@ const QuestionManagementCard = ({ question, forecasts, onResolve, onUpdate, onDe
               </button>
             </div>
           ) : (
-            <div className="flex space-x-2">
+            <div className="flex space-x-2 items-center">
+              {question.isClosed && (
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                  Closed
+                </span>
+              )}
               <button
                 onClick={() => setShowEdit(true)}
                 className="bg-gray-200 text-gray-800 px-3 py-1 rounded text-sm hover:bg-gray-300"
